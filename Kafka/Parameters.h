@@ -25,12 +25,12 @@
 #define N_MESHES		"n_meshes"
 #define N_FRAMES		"n_frames"
 
-#define MESH_PREFIX		"mesh_prefix"
-#define MESH_SUFFIX		"mesh_suffix"
-#define MESH_FIRST_IDX	"mesh_first_idx"
-#define MESH_N_DIGITS	"mesh_n_digits"
-
-#define SH_COEFF_FILENAME	"sh_coeff_filename"
+#define MESH_PREFIX				"mesh_prefix"
+#define MESH_SUFFIX				"mesh_suffix"
+#define MESH_FIRST_IDX			"mesh_first_idx"
+#define MESH_N_DIGITS			"mesh_n_digits"
+#define MESH_HAS_ALBEDO			"mesh_has_albedo"
+#define MESH_SH_COEFF_FILENAME	"mesh_sh_coeff_filename"
 
 #include <cmath>
 #include <string>
@@ -75,18 +75,22 @@ namespace parameters {
 			mesh_suffix.resize(n_meshes);
 			mesh_first_idx.resize(n_meshes);
 			mesh_n_digits.resize(n_meshes);
+			mesh_has_albedo.resize(n_meshes);
+			mesh_sh_coeff_filename.resize(n_meshes);
 
 			mesh_prefix[0] = "C:/Users/Qi/Documents/GitHub/_PangaeaResults/low_res_gray/mesh_pyramid/";
 			mesh_suffix[0] = ".ply";
 			mesh_first_idx[0] = 180;
 			mesh_n_digits[0] = 4;
+			mesh_has_albedo[0] = false;
+			mesh_sh_coeff_filename[0] = "";
 
 			mesh_prefix[1] = "C:/Users/Qi/Documents/GitHub/_PangaeaResults/test20_intrinsic_color/mesh_pyramid/mesh";
 			mesh_suffix[1] = "_level00.obj";
 			mesh_first_idx[1] = 1;
 			mesh_n_digits[1] = 4;
-
-			sh_coeff_filename = "C:/Users/Qi/Desktop/generated/images/x_-1_z_1_a_0.1/_sh_coeff.txt";
+			mesh_has_albedo[1] = true;
+			mesh_sh_coeff_filename[1] = "C:/Users/Qi/Desktop/generated/images/x_-1_z_1_a_0.1/_sh_coeff.txt";
 		}
 
 		// Window parameters
@@ -120,8 +124,8 @@ namespace parameters {
 		vector<string> mesh_suffix;
 		vector<int> mesh_first_idx;
 		vector<int> mesh_n_digits;
-
-		string sh_coeff_filename;
+		vector<int> mesh_has_albedo;
+		vector<string> mesh_sh_coeff_filename;
 
 
 		// Load parameters from an ini file
@@ -208,12 +212,14 @@ namespace parameters {
 
 			mesh_prefix.resize(n_meshes);
 			mesh_suffix.resize(n_meshes);
+			mesh_sh_coeff_filename.resize(n_meshes);
 
 			for (int i = 0; i < n_meshes; i++)
 			{
 				string separator = "_";
 				string prefix = MESH_PREFIX + separator + to_string(i);
 				string suffix = MESH_SUFFIX + separator + to_string(i);
+				string sh_coeff_filename = MESH_SH_COEFF_FILENAME + separator + to_string(i);
 
 				if (!fs[prefix].empty())
 				{
@@ -224,17 +230,12 @@ namespace parameters {
 				{
 					fs[suffix] >> mesh_suffix[i];
 				}
+
+				if (!fs[sh_coeff_filename].empty())
+				{
+					fs[sh_coeff_filename] >> mesh_sh_coeff_filename[i];
+				}
 			}
-
-			//if (!fs[MESH_PREFIX].empty())
-			//{
-			//	fs[MESH_PREFIX] >> mesh_prefix;
-			//}
-
-			//if (!fs[MESH_SUFFIX].empty())
-			//{
-			//	fs[MESH_SUFFIX] >> mesh_suffix;
-			//}
 
 			if (!fs[MESH_FIRST_IDX].empty())
 			{
@@ -246,9 +247,9 @@ namespace parameters {
 				fs[MESH_N_DIGITS] >> mesh_n_digits;
 			}
 
-			if (!fs[SH_COEFF_FILENAME].empty())
+			if (!fs[MESH_HAS_ALBEDO].empty())
 			{
-				fs[SH_COEFF_FILENAME] >> sh_coeff_filename;
+				fs[MESH_HAS_ALBEDO] >> mesh_has_albedo;
 			}
 		}
 

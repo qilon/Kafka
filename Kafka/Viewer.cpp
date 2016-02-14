@@ -22,6 +22,22 @@ const char* Viewer::PAUSE_TEXT = "Pause";
 const double Viewer::FRAME_FREQ = 1000.f / 30.f;
 
 const int Viewer::PLAY_BUTTON_WIDTH = 300;
+
+const int Viewer::N_COLOR_MODES = 5;
+const char* Viewer::STRING_COLOR_MODES[] = {
+	"Intensity", 
+	"Albedo", 
+	"Shading", 
+	"Single color", 
+	"Heat map"
+};
+
+const int Viewer::N_LIGHT_MODES = 3;
+const char* Viewer::STRING_LIGHT_MODES[] = {
+	"None",
+	"GL",
+	"SH",
+};
 //=============================================================================
 /**** VARIABLES ****/
 
@@ -31,11 +47,14 @@ OpenMesh::IO::Options Viewer::ropt;
 
 /* MAIN VARIABLES */
 vector<vector<Mesh>> Viewer::meshes;
+vector<Mesh::Point> Viewer::curr_gt_vertices;
 int Viewer::curr_frame = 1;
 bool Viewer::play = false;
 clock_t Viewer::last_time;
 
-VectorXf Viewer::sh_coeff;
+vector<vector<float>> Viewer::sh_coeff;
+
+VectorXf Viewer::sh_coeff_eigen;
 MatrixXf* Viewer::sh_functions;
 MatrixXf Viewer::albedo;
 VectorXf* Viewer::shading;
@@ -46,10 +65,15 @@ VectorXf* Viewer::shading;
 /* VIEW VARIABLES */
 GLfloat Viewer::eye[3] = { 0.f, 0.f, params.eye[2] };
 GLfloat Viewer::aspectRatio = 1.f;
+GLfloat Viewer::frustum_right;
 
 /* ROTATION AND TRANSLATION MATRIXES*/
-float Viewer::translation[3] = { 0.f, 0.f, 0.f };
-vector<vector<GLfloat>> Viewer::meshes_center;
+GLfloat Viewer::translation[3] = { 0.f, 0.f, 0.f };
+GLfloat Viewer::rotation[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+vector<vector<GLfloat>> Viewer::mesh_center;
+vector<vector<GLfloat>> Viewer::mesh_translation;
+vector<int> Viewer::mesh_color_mode;
+int Viewer::light_mode = MODE_NO_LIGHT;
 
 /* MOUSE CONTROL VARIABLES */
 int Viewer::moving = 0;
@@ -64,6 +88,11 @@ int Viewer::window_id;
 GLUI_Scrollbar* Viewer::glui_frame_scroll = nullptr;
 GLUI_StaticText* Viewer::glui_frame_text = nullptr;
 GLUI_Button* Viewer::glui_play_button = nullptr;
+GLUI_Rotation* Viewer::glui_rotation = nullptr;
+GLUI_Translation* Viewer::glui_trans_xy = nullptr;
+GLUI_Translation* Viewer::glui_trans_z = nullptr;
+vector<GLUI_Listbox*> Viewer::glui_color_list;
+GLUI_Listbox* Viewer::glui_light_list;
 //=============================================================================
 void Viewer::initGLUT(int *argc, char **argv)
 {
@@ -84,14 +113,6 @@ void Viewer::initGLUT(int *argc, char **argv)
 	glutMotionFunc(motion);
 
 	glewInit();
-
-	/* Enable a single OpenGL light. */
-	//glLightfv(GL_LIGHT0, GL_POSITION, LIGHT_POSITION);
-	//glEnable(GL_COLOR_MATERIAL);
-	//glLightfv(GL_LIGHT0, GL_AMBIENT, LIGHT_AMBIENT);
-	//glEnable(GL_LIGHT0);
-	//glEnable(GL_LIGHTING);
-	glDisable(GL_LIGHTING);
 
 	glClearColor(params.background_colour[0], params.background_colour[1],
 		params.background_colour[2], params.background_colour[3]);
@@ -133,21 +154,55 @@ void Viewer::initGLUIComponents(void)
 {
 	GLUI_Panel* glui_panel = glui->add_panel("", GLUI_PANEL_NONE);
 
-	glui_frame_scroll = new GLUI_Scrollbar(glui_panel, "Scrollbar", 
+	GLUI_Panel* glui_panel_1 = glui->add_panel_to_panel(glui_panel, "", GLUI_PANEL_NONE);
+
+	glui_frame_scroll = new GLUI_Scrollbar(glui_panel_1, "Scrollbar",
 		GLUI_SCROLL_HORIZONTAL, GLUI_SCROLL_INT, -1, updateFrame);
 	glui_frame_scroll->set_int_limits(1, params.n_frames, 1);
 	glui_frame_scroll->set_w(glutGet(GLUT_WINDOW_WIDTH) - PLAY_BUTTON_WIDTH);
 	glui_frame_scroll->set_int_limits(1, params.n_frames);
 
-	glui->add_column_to_panel(glui_panel, 0);
+	glui->add_column_to_panel(glui_panel_1, 0);
 
-	glui_frame_text = new GLUI_StaticText(glui_panel, "");
+	glui_frame_text = new GLUI_StaticText(glui_panel_1, "");
 	glui_frame_text->set_alignment(GLUI_ALIGN_CENTER);
 	updateFrameText();
 
-	glui->add_column_to_panel(glui_panel, 0);
+	glui->add_column_to_panel(glui_panel_1, 0);
 
-	glui_play_button = new GLUI_Button(glui_panel, PLAY_TEXT, -1, updatePlay);
+	glui_play_button = new GLUI_Button(glui_panel_1, PLAY_TEXT, -1, updatePlay);
+
+	GLUI_Panel* glui_panel_2 = glui->add_panel_to_panel(glui_panel, "", GLUI_PANEL_NONE);
+
+	glui_rotation = new GLUI_Rotation(glui_panel_2, "Rotate", rotation);
+	glui->add_column_to_panel(glui_panel_2, 0);
+	glui_trans_xy = new GLUI_Translation(glui_panel_2, "Translate", 
+		GLUI_TRANSLATION_XY, translation);
+	glui->add_column_to_panel(glui_panel_2, 0);
+	glui_trans_z = new GLUI_Translation(glui_panel_2, "Zoom in/out", 
+		GLUI_TRANSLATION_Z, &translation[2]);
+	glui_trans_z->set_speed(5);
+
+	glui->add_column_to_panel(glui_panel_2, 0);
+	glui_color_list.resize(params.n_meshes);
+	for (int i = 0; i < params.n_meshes; i++)
+	{
+		string text = i==0 ? "Ground truth color : " : "Result " + to_string(i) + " color :       ";
+
+		glui_color_list[i] = new GLUI_Listbox(glui_panel_2, text.c_str(), &mesh_color_mode[i]);
+		int n_modes = N_COLOR_MODES - (i > 0 ? 0 : 1);
+		for (int j = 0; j < n_modes; j++)
+		{
+			glui_color_list[i]->add_item(j, STRING_COLOR_MODES[j]);
+		}
+	}
+
+	glui->add_column_to_panel(glui_panel_2, 0);
+	glui_light_list = new GLUI_Listbox(glui_panel_2, "Light : ", &light_mode);
+	for (int i = 0; i < N_LIGHT_MODES; i++)
+	{
+		glui_light_list->add_item(i, STRING_LIGHT_MODES[i]);
+	}
 }
 //=============================================================================
 void Viewer::updateFrame(int state)
@@ -200,28 +255,45 @@ void Viewer::display(void)
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	switch (light_mode)
+	{
+	case MODE_GL_LIGHT:
+		/* Enable a single OpenGL light. */
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, &params.light_intensity[0]);
+		glLightfv(GL_LIGHT0, GL_POSITION, &params.light_position[0]);
+		glEnable(GL_COLOR_MATERIAL);
+		glLightfv(GL_LIGHT0, GL_AMBIENT, &params.light_ambient[0]);
+		glEnable(GL_LIGHT0);
+		glEnable(GL_LIGHTING);
+		break;
+	default:
+		glDisable(GL_LIGHTING);
+		break;
+	}
+
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glFrustum(aspectRatio * params.frustum_left, aspectRatio * params.frustum_right, 
-		aspectRatio * params.frustum_bottom, aspectRatio * params.frustum_top, 
-		aspectRatio * params.frustum_near, 
-		aspectRatio * params.frustum_far);
+
+	glFrustum(-frustum_right, frustum_right,
+		-params.frustum_top, params.frustum_top,
+		params.frustum_near, params.frustum_far);
 
 	glMatrixMode(GL_MODELVIEW);
 
 	glLoadIdentity();
 
-	gluLookAt(eye[0], eye[1], eye[2],	/* eye */
+	gluLookAt(eye[0], eye[1], eye[2] - mesh_center[0][2],	/* eye */
 		eye[0], eye[1], 1.f,	/* center */
-		0.f, 1.f, 0.f);	/* up is in positive Y direction */
+		0.f, -1.f, 0.f);	/* up is in positive Y direction */
 	
-	//glTranslatef(translation[0], translation[1], translation[2]);
+	glTranslatef(translation[0], -translation[1], -translation[2]);
 
 	for (int i = 0; i < params.n_meshes; i++)
 	{
 		glPushMatrix();
-		//glTranslatef(meshes_center[i][0], meshes_center[i][1],
-		//	meshes_center[i][2]);
+		glTranslatef(mesh_translation[i][0], mesh_translation[i][1], 
+			mesh_translation[i][2]);
+		glMultMatrixf(rotation);
 		drawModel(i, curr_frame - 1);
 		glPopMatrix();
 	}
@@ -238,6 +310,15 @@ void Viewer::reshape(int x, int y)
 	aspectRatio = (float)tw / (float)th;
 
 	glui_frame_scroll->set_w(glutGet(GLUT_WINDOW_WIDTH) - PLAY_BUTTON_WIDTH);
+
+	frustum_right = aspectRatio * params.frustum_top;
+
+	GLfloat max_right = mesh_center[0][2] * frustum_right / params.frustum_near;
+	GLfloat offset_x = max_right / params.n_meshes;
+	for (int i = 0; i < params.n_meshes; i++)
+	{
+		mesh_translation[i][0] = -max_right + (2 * i + 1) * offset_x;
+	}
 
 	glutPostRedisplay();
 }
@@ -320,17 +401,14 @@ void Viewer::idle(void)
 //=============================================================================
 void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 {
+	glRotatef(90, 0, 0, 1);
+
 	Mesh* mesh2draw = &meshes[_mesh_idx][_frame_idx];
 
-	//glTranslatef(-meshes_rotation_point[_mesh_idx][0], 
-	//	-meshes_rotation_point[_mesh_idx][1], -meshes_rotation_point[_mesh_idx][2]);
-	//glRotatef(angley, 1, 0, 0);
-	//glRotatef(anglex, 0, 1, 0);
-	//glTranslatef(meshes_rotation_point[_mesh_idx][0],
-	//	meshes_rotation_point[_mesh_idx][1], meshes_rotation_point[_mesh_idx][2]);
-	//glRotatef(180.f, 0, 1, 0);
-	//glRotatef(90.f, 0, 0, 1);
-	//glRotatef(180.f, 0, 0, 1);
+	if (_mesh_idx == 0)
+	{
+		curr_gt_vertices.resize(meshes[_mesh_idx][_frame_idx].n_vertices());
+	}
 
 	glBegin(GL_TRIANGLES);
 
@@ -341,31 +419,82 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 		Mesh::FaceVertexIter fv_it;
 		for (fv_it = mesh2draw->fv_iter(*f_it); fv_it.is_valid(); ++fv_it)
 		{
-			//int v_idx = fv_it.handle().idx();
+			int v_idx = fv_it.handle().idx();
 
 			Mesh::Point p = mesh2draw->point(*fv_it);
-			//float point[3] {p[0] - meshes_center[_mesh_idx][0], 
-			//	p[1] - meshes_center[_mesh_idx][1],
-			//	p[2] - meshes_center[_mesh_idx][2]};
 
-			float point[3] {p[0],
-				p[1],
-				p[2]};
+			GLfloat point[3] {p[0] - mesh_center[0][0],
+				p[1] - mesh_center[0][1],
+				p[2] - mesh_center[0][2]};
 
-			//Mesh::Normal n = mesh2draw->normal(*fv_it);
-			//float normal[3] {n[0], n[1], n[2]};
+			Mesh::Normal n = mesh2draw->normal(*fv_it);
+			GLfloat normal[3] {n[0], n[1], n[2]};
 
 			Mesh::Color c = mesh2draw->color(*fv_it);
-			glColor3f(c[0], c[1], c[2]);
 
-			//RowVectorXf n = normals2draw->row(v_idx);
-			//float normal[3] {n(0), n(1), n(2)};
+			GLfloat color[3];
+			GLfloat shading;
+			switch (mesh_color_mode[_mesh_idx])
+			{
+			case MODE_INTENSITY:
+				if (params.mesh_has_albedo[_mesh_idx])
+				{
+					shading = getShading(normal, sh_coeff[_mesh_idx]);
+					color[0] = c[0] * shading;
+					color[1] = c[1] * shading;
+					color[2] = c[2] * shading;
+				}
+				else
+				{
+					color[0] = c[0];
+					color[1] = c[1];
+					color[2] = c[2];
+				}
+				break;
+			case MODE_ALBEDO:
+				color[0] = c[0];
+				color[1] = c[1];
+				color[2] = c[2];
+				break;
+			case MODE_SHADING:
+				if (params.mesh_has_albedo[_mesh_idx])
+				{
+					shading = getShading(normal, sh_coeff[_mesh_idx]);
+					color[0] = shading;
+					color[1] = shading;
+					color[2] = shading;
+				}
+				else
+				{
+					color[0] = c[0];
+					color[1] = c[1];
+					color[2] = c[2];
+				}
+				break;
+			case MODE_UNICOLOR:
+				color[0] = params.mesh_colour[0];
+				color[1] = params.mesh_colour[1];
+				color[2] = params.mesh_colour[2];
+				break;
+			case MODE_HEATMAP:
+				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx], 
+					MIN_DISTANCE, MAX_DISTANCE);
+				break;
+			default:
+				break;
+			}
 
-			//RowVectorXf c = colours2draw->row(v_idx);
-			//glColor3f(c(0), c(1), c(2));
+			glColor3fv(color);
 
-			//glNormal3fv(normal);
+			glNormal3fv(normal);
 			glVertex3fv(point);
+
+			if (_mesh_idx == 0)
+			{
+				curr_gt_vertices[v_idx][0] = p[0];
+				curr_gt_vertices[v_idx][1] = p[1];
+				curr_gt_vertices[v_idx][2] = p[2];
+			}
 		}
 	}
 	glEnd();
@@ -374,6 +503,7 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 void Viewer::zoom(GLfloat distance)
 {
 	translation[2] += distance;
+	glui_trans_z->set_float_val(translation[2]);
 }
 //=============================================================================
 void Viewer::calculateCenterPoint(int _mesh_idx)
@@ -399,10 +529,10 @@ void Viewer::calculateCenterPoint(int _mesh_idx)
 		min_z = min(min_z, p[2]);
 	}
 
-	meshes_center[_mesh_idx].resize(3);
-	meshes_center[_mesh_idx][0] = min_x + (max_x - min_x) / 2;
-	meshes_center[_mesh_idx][0] = min_y + (max_y - min_y) / 2;
-	meshes_center[_mesh_idx][0] = min_z + (max_z - min_z) / 2;
+	mesh_center[_mesh_idx].resize(3);
+	mesh_center[_mesh_idx][0] = min_x + (max_x - min_x) / 2;
+	mesh_center[_mesh_idx][1] = min_y + (max_y - min_y) / 2;
+	mesh_center[_mesh_idx][2] = min_z + (max_z - min_z) / 2;
 }
 //=============================================================================
 void Viewer::initialize(int *argc, char **argv)
@@ -410,43 +540,21 @@ void Viewer::initialize(int *argc, char **argv)
 	string config_filename = argv[1];
 	params.load(config_filename);
 
+	sh_coeff.resize(params.n_meshes);
+	mesh_color_mode.resize(params.n_meshes);
+	for (int i = 0; i < params.n_meshes; i++)
+	{
+		if (params.mesh_has_albedo[i])
+		{
+			readSHCoeff(sh_coeff[i], params.mesh_sh_coeff_filename[i]);
+		}
+		mesh_color_mode[i] = MODE_INTENSITY;
+	}
+
 	loadMeshes();
 
 	initGLUT(argc, argv);
 	initGLUI();
-}
-//=============================================================================
-/*
- * Reads mesh from file and computes the normals if not provided.
- * This mesh is loaded basicly to have faces
- */
-void Viewer::loadMesh(string _mesh_filename, Mesh* _mesh)
-{
-	Mesh* curr_mesh = _mesh;
-
-	readMesh(*curr_mesh, _mesh_filename.c_str(), ropt);
-
-	// Add vertex normals
-	//curr_mesh->request_vertex_normals();
-
-	// Add face normals
-	//curr_mesh->request_face_normals();
-
-	////If the file did not provide vertex normals, then calculate them
-	//if (curr_mesh->has_face_normals() && curr_mesh->has_vertex_normals())
-	//{
-	//	// let the mesh update the normals
-	//	curr_mesh->update_normals();
-	//}
-
-	// Add vertex colors
-
-	//Mesh::ConstVertexIter v_it;
-	//Mesh::ConstVertexIter v_end(curr_mesh->vertices_end());
-	//for (v_it = curr_mesh->vertices_begin(); v_it != v_end; ++v_it)
-	//{
-	//	curr_mesh->set_color(*v_it, MODEL_COLOR);
-	//}
 }
 //=============================================================================
 void Viewer::run()
@@ -472,16 +580,35 @@ void Viewer::loadMeshes()
 	start = clock();
 
 	meshes.resize(params.n_meshes);
-	meshes_center.resize(params.n_meshes);
+	mesh_center.resize(params.n_meshes);
+	mesh_translation.resize(params.n_meshes);
+	mesh_color_mode.resize(params.n_meshes);
+
+	vector<boost::thread*> threads;
 	for (int i = 0; i < params.n_meshes; i++)
 	{
 		meshes[i].resize(params.n_frames);
+		mesh_translation[i].resize(3);
 		for (int j = 0; j < params.n_frames; j++)
 		{
 			string mesh_filename = getMeshFilename(i, j);
+			//threads.push_back(
+			//	new boost::thread(
+			//	&readMesh, boost::ref(meshes[i][j]), mesh_filename, ropt)
+			//	);
+			//threads[i]->join();
 			readMesh(meshes[i][j], mesh_filename, ropt);
 		}
+	}
 
+	//for (int i = 0; i < params.n_meshes * params.n_frames; i++)
+	//{
+	//	threads[i]->join();
+	//	delete threads[i];
+	//}
+
+	for (int i = 0; i < params.n_meshes; i++)
+	{
 		calculateCenterPoint(i);
 	}
 
@@ -583,5 +710,106 @@ string Viewer::getMeshFilename(int _mesh_idx, int _frame_idx)
 	filename.append(params.mesh_suffix[_mesh_idx]);
 
 	return filename;
+}
+//=============================================================================
+void Viewer::readSHCoeff(vector<float> &_sh_coeff, const string _sh_coeff_filename)
+{
+	ifstream ifs(_sh_coeff_filename);
+
+	if (!ifs.is_open())
+	{
+		cerr << "could not open file " << _sh_coeff_filename << endl;
+		return;
+	}
+
+	float value;
+	while (ifs >> value) {
+		_sh_coeff.push_back(value);
+	}
+
+	ifs.close();
+
+	int sh_order = std::sqrt(_sh_coeff.size()) - 1;
+
+	if ((sh_order + 1) * (sh_order + 1) != _sh_coeff.size())
+	{
+		cerr << "The number of SH coefficients is not correct (" << _sh_coeff_filename
+			<< "). It should be equal to (n + 1)^2 where n is the SH order." << endl;
+		return;
+	}
+}
+//=============================================================================
+GLfloat Viewer::getShading(float* _normal, vector<float> &_sh_coeff)
+{
+	GLfloat shading = 0.0f;
+
+	GLfloat x = _normal[0];		// x
+	GLfloat y = _normal[1];		// y
+	GLfloat z = _normal[2];		// z
+	GLfloat x2 = x * x;			// x^2
+	GLfloat y2 = y * y;			// y^2
+	GLfloat z2 = z * z;			// z^2
+	GLfloat xy = x * y;			// x * y
+	GLfloat xz = x * z;			// x * z
+	GLfloat yz = y * z;			// y * z
+	GLfloat x2_y2 = x2 - y2;	// x^2 - y^2
+
+	shading += _sh_coeff[0];
+
+	if (_sh_coeff.size() > 1)
+	{
+		shading += _sh_coeff[1] * x;	// x
+		shading += _sh_coeff[2] * y;	// y
+		shading += _sh_coeff[3] * z;	// z
+	}
+
+	if (_sh_coeff.size() > 4)
+	{
+		shading += _sh_coeff[4] * xy;			// x * y
+		shading += _sh_coeff[5] * xz;			// x * z
+		shading += _sh_coeff[6] * yz;			// y * z
+		shading += _sh_coeff[7] * x2_y2;		// x^2 - y^2
+		shading += _sh_coeff[8] * (3 * z2 - 1);	// 3 * z^2 - 1
+	}
+
+	if (_sh_coeff.size() > 9)
+	{
+		shading += _sh_coeff[9] * (3 * x2 - y2) * y;		// (3 * x^2 - y^2) * y 
+		shading += _sh_coeff[10] * xy * z;					// x * y * z
+		shading += _sh_coeff[11] * (5 * z2 - 1) * y;		// (5 * z^2 - 1) * y
+		shading += _sh_coeff[12] * (5 * z2 - 3 * 1) * z;	// (5 * z^2 - 3) * z
+		shading += _sh_coeff[13] * (5 * z2 - 1) * x;		// (5 * z^2 - 1) * x
+		shading += _sh_coeff[14] * x2_y2 * z;				// (x^2 - y^2) * z
+		shading += _sh_coeff[15] * (x2 - 3 * y2) * x;		// (x^2 - 3 * y^2) * x
+	}
+
+	if (_sh_coeff.size() > 15)
+	{
+		shading += _sh_coeff[16] * x2_y2 * xy;								// (x^2 - y^2) * x * y
+		shading += _sh_coeff[17] * (3 * x2 - y2) * yz;						// (3 * x^2 - y^2) * yz
+		shading += _sh_coeff[18] * (7 * z2 - 1) * xy;						// (7 * z^2 - 1) * x * y
+		shading += _sh_coeff[19] * (7 * z2 - 3 * 1) * yz;					// (7 * z^2 - 3) * y * z
+		shading += _sh_coeff[20] * (3 - 30 * z2 + 35 * z2 * z2);				// 3 - 30 * z^2 + 35 * z^4
+		shading += _sh_coeff[21] * (7 * z2 - 3) * xz;						// (7 * z^2 - 3) * x * z
+		shading += _sh_coeff[22] * (7 * z2 - 1) * x2_y2;					// (7 * z^2 - 1) * (x^2 - y^2)
+		shading += _sh_coeff[23] * (x2 - 3 * y2) * xz;						// (x^2 - 3 * y^2) * x * z
+		shading += _sh_coeff[24] * ((x2 - 3 * y2) * x2 - (3 * x2 - y2) * y2);	// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
+	}
+
+	return shading;
+}
+//=============================================================================
+void Viewer::computeHeatMapDistanceColor(GLfloat* _color, 
+	const Mesh::Point &_vertex, const Mesh::Point &_gt_vertex, 
+	const GLfloat _min, const GLfloat _max)
+{
+	GLfloat v[3] = { _vertex[0] - _gt_vertex[0], _vertex[1] - _gt_vertex[1],
+		_vertex[2] - _gt_vertex[2] };
+	//GLfloat distance = log(sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) + 1e-10);
+	GLfloat distance = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+	GLfloat ratio = 2 * (distance - _min) / (_max - _min);
+	_color[0] = min(max(ratio - 1, 0.f), 1.f);
+	_color[1] = min(max(1 - ratio, 0.f), 1.f);
+	_color[2] = 1 - _color[0] - _color[1];
 }
 //=============================================================================
