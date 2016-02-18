@@ -7,6 +7,7 @@
 //=============================================================================
 int readMesh(Mesh& _mesh, const string _filename, OpenMesh::IO::Options _ropt)
 {
+	_mesh.request_face_normals();
 	_mesh.request_vertex_normals();
 	_mesh.request_vertex_colors();
 
@@ -16,6 +17,8 @@ int readMesh(Mesh& _mesh, const string _filename, OpenMesh::IO::Options _ropt)
 
 		return -1;
 	}
+
+	_mesh.update_normals();
 
 	return 0;
 }

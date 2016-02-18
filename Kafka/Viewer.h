@@ -46,22 +46,25 @@
 #define UPPER_W 87
 #define LOWER_W 119
 
-#define MODE_INTENSITY	0
-#define MODE_ALBEDO		1
-#define MODE_SHADING	2
-#define MODE_UNICOLOR	3
-#define MODE_HEATMAP	4
+#define MODE_INTENSITY		0
+#define MODE_ALBEDO			1
+#define MODE_SHADING		2
+#define MODE_UNICOLOR		3
+#define MODE_NORMALS		4
+#define MODE_SPATIAL_DIFF	5
+#define MODE_NORMAL_DIFF	6
 
 #define MODE_NO_LIGHT	0
 #define MODE_GL_LIGHT	1
-#define MODE_SH_LIGHT	2
 
 #define MIN_DISTANCE	0
 #define MAX_DISTANCE	3
 
+#define MIN_ORIENT_DIFF	-1
+#define MAX_ORIENT_DIFF	1
+
 //=============================================================================
 using namespace std;
-using namespace Eigen;
 //=============================================================================
 class Viewer
 {
@@ -100,17 +103,14 @@ private:
 
 	/* MAIN VARIABLES */
 	static vector<vector<Mesh>> meshes;
+	static vector<vector<bool>> is_loaded;
 	static vector<Mesh::Point> curr_gt_vertices;
+	static vector<Mesh::Normal> curr_gt_normals;
 	static int curr_frame;
 	static bool play;
 	static clock_t last_time;
 
 	static vector<vector<float>> sh_coeff;
-
-	static VectorXf sh_coeff_eigen;
-	static MatrixXf* sh_functions;
-	static MatrixXf albedo;
-	static VectorXf* shading;
 	
 	//static VectorXi mode;
 
@@ -174,15 +174,17 @@ private:
 	static void calculateCenterPoint(int _mesh_idx); /* calculates rotation point based on mesh size */
 	static string cvtIntToString(int _n, int _no_digits);
 	static int numDigits(int _number);
-	static MatrixXf normals2colour(const MatrixXf &_normals);
-	static MatrixXf normals2SHfunctions(const MatrixXf &_normals, int _order);
 
 	static void loadMeshes();
+	static void loadMesh(const int _mesh_idx, const int _frame_idx);
 	static string getMeshFilename(int _mesh_idx, int _frame_idx);
 	static void readSHCoeff(vector<float> &_sh_coeff, const string _sh_coeff_filename);
 	static GLfloat getShading(float* _normal, vector<float> &_sh_coeff);
 	static void computeHeatMapDistanceColor(GLfloat* _color, const Mesh::Point &_vertex,
 		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max);
+	static void computeHeatMapOrientationColor(GLfloat* _color, const Mesh::Point &_vertex,
+		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max);
+	static void computeNormalColor(GLfloat* _color, const Mesh::Normal &_normal);
 
 public:
 	static void initialize(int *argcp, char **argv);

@@ -23,20 +23,21 @@ const double Viewer::FRAME_FREQ = 1000.f / 30.f;
 
 const int Viewer::PLAY_BUTTON_WIDTH = 300;
 
-const int Viewer::N_COLOR_MODES = 5;
+const int Viewer::N_COLOR_MODES = 7;
 const char* Viewer::STRING_COLOR_MODES[] = {
 	"Intensity", 
 	"Albedo", 
 	"Shading", 
 	"Single color", 
-	"Heat map"
+	"Normal",
+	"Spatial Diff",
+	"Orientation Diff"
 };
 
-const int Viewer::N_LIGHT_MODES = 3;
+const int Viewer::N_LIGHT_MODES = 2;
 const char* Viewer::STRING_LIGHT_MODES[] = {
 	"None",
-	"GL",
-	"SH",
+	"GL"
 };
 //=============================================================================
 /**** VARIABLES ****/
@@ -47,17 +48,14 @@ OpenMesh::IO::Options Viewer::ropt;
 
 /* MAIN VARIABLES */
 vector<vector<Mesh>> Viewer::meshes;
+vector<vector<bool>> Viewer::is_loaded;
 vector<Mesh::Point> Viewer::curr_gt_vertices;
+vector<Mesh::Normal> Viewer::curr_gt_normals;
 int Viewer::curr_frame = 1;
 bool Viewer::play = false;
 clock_t Viewer::last_time;
 
 vector<vector<float>> Viewer::sh_coeff;
-
-VectorXf Viewer::sh_coeff_eigen;
-MatrixXf* Viewer::sh_functions;
-MatrixXf Viewer::albedo;
-VectorXf* Viewer::shading;
 
 //MatrixXf** Viewer::intensities = nullptr;
 //VectorXi Viewer::mode;
@@ -103,7 +101,7 @@ void Viewer::initGLUT(int *argc, char **argv)
 	glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - params.window_width) / 2,
 		10);
 
-	window_id = glutCreateWindow(params.window_title.c_str());
+	window_id = glutCreateWindow(params.mesh_prefix[1].c_str());
 
 	// Uncomment to enable transparencies
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -179,7 +177,7 @@ void Viewer::initGLUIComponents(void)
 	glui_trans_xy = new GLUI_Translation(glui_panel_2, "Translate", 
 		GLUI_TRANSLATION_XY, translation);
 	glui->add_column_to_panel(glui_panel_2, 0);
-	glui_trans_z = new GLUI_Translation(glui_panel_2, "Zoom in/out", 
+	glui_trans_z = new GLUI_Translation(glui_panel_2, "Zoom out/in", 
 		GLUI_TRANSLATION_Z, &translation[2]);
 	glui_trans_z->set_speed(5);
 
@@ -190,8 +188,7 @@ void Viewer::initGLUIComponents(void)
 		string text = i==0 ? "Ground truth color : " : "Result " + to_string(i) + " color :       ";
 
 		glui_color_list[i] = new GLUI_Listbox(glui_panel_2, text.c_str(), &mesh_color_mode[i]);
-		int n_modes = N_COLOR_MODES - (i > 0 ? 0 : 1);
-		for (int j = 0; j < n_modes; j++)
+		for (int j = 0; j < N_COLOR_MODES; j++)
 		{
 			glui_color_list[i]->add_item(j, STRING_COLOR_MODES[j]);
 		}
@@ -282,11 +279,11 @@ void Viewer::display(void)
 
 	glLoadIdentity();
 
-	gluLookAt(eye[0], eye[1], eye[2] - mesh_center[0][2],	/* eye */
-		eye[0], eye[1], 1.f,	/* center */
-		0.f, -1.f, 0.f);	/* up is in positive Y direction */
+	gluLookAt(eye[0], eye[1], eye[2] + mesh_center[0][2],	/* eye */
+		eye[0], eye[1], -1.f,	/* center */
+		0.f, 1.f, 0.f);	/* up is in positive Y direction */
 	
-	glTranslatef(translation[0], -translation[1], -translation[2]);
+	glTranslatef(translation[0], translation[1], -translation[2]);
 
 	for (int i = 0; i < params.n_meshes; i++)
 	{
@@ -401,13 +398,20 @@ void Viewer::idle(void)
 //=============================================================================
 void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 {
-	glRotatef(90, 0, 0, 1);
+	glRotatef(180, 0, 1, 0);
+	glRotatef(-90, 0, 0, 1);
+
+	if (!is_loaded[_mesh_idx][_frame_idx])
+	{
+		loadMesh(_mesh_idx, _frame_idx);
+	}
 
 	Mesh* mesh2draw = &meshes[_mesh_idx][_frame_idx];
 
 	if (_mesh_idx == 0)
 	{
 		curr_gt_vertices.resize(meshes[_mesh_idx][_frame_idx].n_vertices());
+		curr_gt_normals.resize(meshes[_mesh_idx][_frame_idx].n_vertices());
 	}
 
 	glBegin(GL_TRIANGLES);
@@ -419,7 +423,7 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 		Mesh::FaceVertexIter fv_it;
 		for (fv_it = mesh2draw->fv_iter(*f_it); fv_it.is_valid(); ++fv_it)
 		{
-			int v_idx = fv_it.handle().idx();
+			int v_idx = fv_it->idx();
 
 			Mesh::Point p = mesh2draw->point(*fv_it);
 
@@ -431,6 +435,17 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 			GLfloat normal[3] {n[0], n[1], n[2]};
 
 			Mesh::Color c = mesh2draw->color(*fv_it);
+
+			if (_mesh_idx == 0)
+			{
+				curr_gt_vertices[v_idx][0] = p[0];
+				curr_gt_vertices[v_idx][1] = p[1];
+				curr_gt_vertices[v_idx][2] = p[2];
+
+				curr_gt_normals[v_idx][0] = n[0];
+				curr_gt_normals[v_idx][1] = n[1];
+				curr_gt_normals[v_idx][2] = n[2];
+			}
 
 			GLfloat color[3];
 			GLfloat shading;
@@ -476,9 +491,16 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 				color[1] = params.mesh_colour[1];
 				color[2] = params.mesh_colour[2];
 				break;
-			case MODE_HEATMAP:
+			case MODE_NORMALS:
+				computeNormalColor(color, n);
+				break;
+			case MODE_SPATIAL_DIFF:
 				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx], 
 					MIN_DISTANCE, MAX_DISTANCE);
+				break;
+			case MODE_NORMAL_DIFF:
+				computeHeatMapOrientationColor(color, n, curr_gt_normals[v_idx],
+					MIN_ORIENT_DIFF, MAX_ORIENT_DIFF);
 				break;
 			default:
 				break;
@@ -488,13 +510,6 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 
 			glNormal3fv(normal);
 			glVertex3fv(point);
-
-			if (_mesh_idx == 0)
-			{
-				curr_gt_vertices[v_idx][0] = p[0];
-				curr_gt_vertices[v_idx][1] = p[1];
-				curr_gt_vertices[v_idx][2] = p[2];
-			}
 		}
 	}
 	glEnd();
@@ -583,22 +598,24 @@ void Viewer::loadMeshes()
 	mesh_center.resize(params.n_meshes);
 	mesh_translation.resize(params.n_meshes);
 	mesh_color_mode.resize(params.n_meshes);
+	is_loaded.resize(params.n_meshes);
 
-	vector<boost::thread*> threads;
+	//vector<boost::thread*> threads;
 	for (int i = 0; i < params.n_meshes; i++)
 	{
 		meshes[i].resize(params.n_frames);
 		mesh_translation[i].resize(3);
-		for (int j = 0; j < params.n_frames; j++)
-		{
-			string mesh_filename = getMeshFilename(i, j);
+		is_loaded[i].resize(params.n_frames, false);
+		int j = 0;
+		//for (int j = 0; j < params.n_frames; j++)
+		//{
+			loadMesh(i, j);
 			//threads.push_back(
 			//	new boost::thread(
 			//	&readMesh, boost::ref(meshes[i][j]), mesh_filename, ropt)
 			//	);
 			//threads[i]->join();
-			readMesh(meshes[i][j], mesh_filename, ropt);
-		}
+		//}
 	}
 
 	//for (int i = 0; i < params.n_meshes * params.n_frames; i++)
@@ -614,6 +631,13 @@ void Viewer::loadMeshes()
 
 	std::cout << (clock() - start) / (double)(CLOCKS_PER_SEC / 1000)
 		<< " ms" << endl;
+}
+//=============================================================================
+void Viewer::loadMesh(const int _mesh_idx, const int _frame_idx)
+{
+	string mesh_filename = getMeshFilename(_mesh_idx, _frame_idx);
+	readMesh(meshes[_mesh_idx][_frame_idx], mesh_filename, ropt);
+	is_loaded[_mesh_idx][_frame_idx] = true;
 }
 //=============================================================================
 string Viewer::cvtIntToString(int _n, int _no_digits)
@@ -632,74 +656,6 @@ int Viewer::numDigits(int _number)
 	}
 
 	return digits;
-}
-//=============================================================================
-MatrixXf Viewer::normals2colour(const MatrixXf &_normals)
-{
-	MatrixXf colours = _normals;
-	colours += MatrixXf::Ones(colours.rows(), colours.cols());
-	colours /= 2;
-
-	return colours;
-}
-//=============================================================================
-MatrixXf Viewer::normals2SHfunctions(const MatrixXf &_normals, int _order)
-{
-	MatrixXf h;
-	int no_points = _normals.rows();
-
-	VectorXf x = _normals.col(0);				// x
-	VectorXf y = _normals.col(1);				// y 
-	VectorXf z = _normals.col(2);				// z
-	VectorXf x2 = x.cwiseProduct(x);			// x^2
-	VectorXf y2 = y.cwiseProduct(y);			// y^2
-	VectorXf z2 = z.cwiseProduct(z);			// z^2
-	VectorXf xy = x.cwiseProduct(y);			// x * y
-	VectorXf xz = x.cwiseProduct(z);			// x * z
-	VectorXf yz = y.cwiseProduct(z);			// y * z
-	VectorXf x2_y2 = x2 - y2;					// x^2 - y^2
-	VectorXf ones = VectorXf::Ones(no_points);	// 1
-
-	h = MatrixXf::Ones(no_points, (_order + 1) * (_order + 1));
-
-	if (_order > 0)
-		h.block(0, 1, no_points, 3) = _normals;	// x, y, z
-
-	if (_order > 1)
-	{
-		h.col(4) = xy;				// x * y
-		h.col(5) = xz;				// x * z
-		h.col(6) = yz;				// y * z
-		h.col(7) = x2_y2;			// x^2 - y^2
-		h.col(8) = 3 * z2 - ones;	// 3 * z^2 - 1
-	}
-
-	if (_order > 2)
-	{
-		h.col(9) = (3 * x2 - y2).cwiseProduct(y);			// (3 * x^2 - y^2) * y 
-		h.col(10) = xy.cwiseProduct(z);						// x * y * z
-		h.col(11) = (5 * z2 - ones).cwiseProduct(y);		// (5 * z^2 - 1) * y
-		h.col(12) = (5 * z2 - 3 * ones).cwiseProduct(z);	// (5 * z^2 - 3) * z
-		h.col(13) = (5 * z2 - ones).cwiseProduct(x);		// (5 * z^2 - 1) * x
-		h.col(14) = x2_y2.cwiseProduct(z);					// (x^2 - y^2) * z
-		h.col(15) = (x2 - 3 * y2).cwiseProduct(x);			// (x^2 - 3 * y^2) * x
-	}
-
-	if (_order > 3)
-	{
-		h.col(16) = x2_y2.cwiseProduct(xy);							// (x^2 - y^2) * x * y
-		h.col(17) = (3 * x2 - y2).cwiseProduct(yz);					// (3 * x^2 - y^2) * yz
-		h.col(18) = (7 * z2 - ones).cwiseProduct(xy);				// (7 * z^2 - 1) * x * y
-		h.col(19) = (7 * z2 - 3 * ones).cwiseProduct(yz);			// (7 * z^2 - 3) * y * z
-		h.col(20) = 3 * ones - 30 * z2 + 35 * z2.cwiseProduct(z2);	// 3 - 30 * z^2 + 35 * z^4
-		h.col(21) = (7 * z2 - 3 * ones).cwiseProduct(xz);			// (7 * z^2 - 3) * x * z
-		h.col(22) = (7 * z2 - ones).cwiseProduct(x2_y2);			// (7 * z^2 - 1) * (x^2 - y^2)
-		h.col(23) = (x2 - 3 * y2).cwiseProduct(xz);					// (x^2 - 3 * y^2) * x * z
-		h.col(24) = (x2 - 3 * y2).cwiseProduct(x2)					// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
-			- (3 * x2 - y2).cwiseProduct(y2);
-	}
-
-	return h;
 }
 //=============================================================================
 string Viewer::getMeshFilename(int _mesh_idx, int _frame_idx)
@@ -774,25 +730,25 @@ GLfloat Viewer::getShading(float* _normal, vector<float> &_sh_coeff)
 
 	if (_sh_coeff.size() > 9)
 	{
-		shading += _sh_coeff[9] * (3 * x2 - y2) * y;		// (3 * x^2 - y^2) * y 
-		shading += _sh_coeff[10] * xy * z;					// x * y * z
-		shading += _sh_coeff[11] * (5 * z2 - 1) * y;		// (5 * z^2 - 1) * y
-		shading += _sh_coeff[12] * (5 * z2 - 3 * 1) * z;	// (5 * z^2 - 3) * z
-		shading += _sh_coeff[13] * (5 * z2 - 1) * x;		// (5 * z^2 - 1) * x
-		shading += _sh_coeff[14] * x2_y2 * z;				// (x^2 - y^2) * z
-		shading += _sh_coeff[15] * (x2 - 3 * y2) * x;		// (x^2 - 3 * y^2) * x
+		shading += _sh_coeff[9] * (3 * x2 - y2) * y;	// (3 * x^2 - y^2) * y 
+		shading += _sh_coeff[10] * xy * z;				// x * y * z
+		shading += _sh_coeff[11] * (5 * z2 - 1) * y;	// (5 * z^2 - 1) * y
+		shading += _sh_coeff[12] * (5 * z2 - 3) * z;	// (5 * z^2 - 3) * z
+		shading += _sh_coeff[13] * (5 * z2 - 1) * x;	// (5 * z^2 - 1) * x
+		shading += _sh_coeff[14] * x2_y2 * z;			// (x^2 - y^2) * z
+		shading += _sh_coeff[15] * (x2 - 3 * y2) * x;	// (x^2 - 3 * y^2) * x
 	}
 
 	if (_sh_coeff.size() > 15)
 	{
-		shading += _sh_coeff[16] * x2_y2 * xy;								// (x^2 - y^2) * x * y
-		shading += _sh_coeff[17] * (3 * x2 - y2) * yz;						// (3 * x^2 - y^2) * yz
-		shading += _sh_coeff[18] * (7 * z2 - 1) * xy;						// (7 * z^2 - 1) * x * y
-		shading += _sh_coeff[19] * (7 * z2 - 3 * 1) * yz;					// (7 * z^2 - 3) * y * z
+		shading += _sh_coeff[16] * x2_y2 * xy;									// (x^2 - y^2) * x * y
+		shading += _sh_coeff[17] * (3 * x2 - y2) * yz;							// (3 * x^2 - y^2) * yz
+		shading += _sh_coeff[18] * (7 * z2 - 1) * xy;							// (7 * z^2 - 1) * x * y
+		shading += _sh_coeff[19] * (7 * z2 - 3 * 1) * yz;						// (7 * z^2 - 3) * y * z
 		shading += _sh_coeff[20] * (3 - 30 * z2 + 35 * z2 * z2);				// 3 - 30 * z^2 + 35 * z^4
-		shading += _sh_coeff[21] * (7 * z2 - 3) * xz;						// (7 * z^2 - 3) * x * z
-		shading += _sh_coeff[22] * (7 * z2 - 1) * x2_y2;					// (7 * z^2 - 1) * (x^2 - y^2)
-		shading += _sh_coeff[23] * (x2 - 3 * y2) * xz;						// (x^2 - 3 * y^2) * x * z
+		shading += _sh_coeff[21] * (7 * z2 - 3) * xz;							// (7 * z^2 - 3) * x * z
+		shading += _sh_coeff[22] * (7 * z2 - 1) * x2_y2;						// (7 * z^2 - 1) * (x^2 - y^2)
+		shading += _sh_coeff[23] * (x2 - 3 * y2) * xz;							// (x^2 - 3 * y^2) * x * z
 		shading += _sh_coeff[24] * ((x2 - 3 * y2) * x2 - (3 * x2 - y2) * y2);	// (x^2 - 3 * y^2) * x^2 - (3 * x^2 - y^2) * y^2 
 	}
 
@@ -807,9 +763,33 @@ void Viewer::computeHeatMapDistanceColor(GLfloat* _color,
 		_vertex[2] - _gt_vertex[2] };
 	//GLfloat distance = log(sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) + 1e-10);
 	GLfloat distance = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+	distance = min(max(distance, _min), _max);
 	GLfloat ratio = 2 * (distance - _min) / (_max - _min);
-	_color[0] = min(max(ratio - 1, 0.f), 1.f);
-	_color[1] = min(max(1 - ratio, 0.f), 1.f);
-	_color[2] = 1 - _color[0] - _color[1];
+	_color[0] = max(ratio - 1, 0.f);
+	_color[2] = max(1 - ratio, 0.f);
+	_color[1] = 1 - _color[0] - _color[2];
+}
+//=============================================================================
+void Viewer::computeHeatMapOrientationColor(GLfloat* _color, 
+	const Mesh::Point &_normal, const Mesh::Point &_gt_normal,
+	const GLfloat _min, const GLfloat _max)
+{
+	GLfloat cos_a = _normal[0] * _gt_normal[0] + _normal[1] * _gt_normal[1]
+		+ _normal[2] * _gt_normal[2];
+	GLfloat ratio = 2 * (cos_a - _min) / (_max - _min);
+	_color[0] = max(1 - ratio, 0.f);
+	_color[2] = max(ratio - 1, 0.f);
+	_color[1] = 1 - _color[0] - _color[2];
+}
+//=============================================================================
+void Viewer::computeNormalColor(GLfloat* _color, const Mesh::Normal &_normal)
+{
+	//_color[0] = (_normal[0] + 1) / 2;
+	//_color[1] = (_normal[1] + 1) / 2;
+	//_color[2] = (_normal[2] + 1) / 2;
+
+	_color[0] = (-_normal[1] + 1) / 2;
+	_color[1] = (-_normal[0] + 1) / 2;
+	_color[2] = (-_normal[2] + 1) / 2;
 }
 //=============================================================================

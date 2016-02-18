@@ -5,11 +5,8 @@
 //*****************************************************************************
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh>
-#include <Eigen/Dense>
-#include <random>
 //=============================================================================
 using namespace OpenMesh;
-using namespace Eigen;
 using namespace std;
 //=============================================================================
 struct Traits
