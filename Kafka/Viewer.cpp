@@ -23,15 +23,16 @@ const double Viewer::FRAME_FREQ = 1000.f / 30.f;
 
 const int Viewer::PLAY_BUTTON_WIDTH = 300;
 
-const int Viewer::N_COLOR_MODES = 7;
+const int Viewer::N_COLOR_MODES = 8;
 const char* Viewer::STRING_COLOR_MODES[] = {
 	"Intensity", 
 	"Albedo", 
 	"Shading", 
 	"Single color", 
 	"Normal",
-	"Spatial Diff",
-	"Orientation Diff"
+	"Position heatmap",
+	"XY Position heatmap",
+	"Orientation heatmap"
 };
 
 const int Viewer::N_LIGHT_MODES = 2;
@@ -49,6 +50,8 @@ OpenMesh::IO::Options Viewer::ropt;
 /* MAIN VARIABLES */
 vector<vector<Mesh>> Viewer::meshes;
 vector<vector<bool>> Viewer::is_loaded;
+vector<int> Viewer::last_loaded_frame;
+vector<vector<boost::thread*>> Viewer::threads;
 vector<Mesh::Point> Viewer::curr_gt_vertices;
 vector<Mesh::Normal> Viewer::curr_gt_normals;
 int Viewer::curr_frame = 1;
@@ -132,7 +135,7 @@ void Viewer::initGLUI(void)
 
 	GLUI_Master.set_glutReshapeFunc(reshape);
 	GLUI_Master.set_glutKeyboardFunc(key);
-	GLUI_Master.set_glutSpecialFunc(NULL);
+	GLUI_Master.set_glutSpecialFunc(specialKey);
 	GLUI_Master.set_glutMouseFunc(mouse);
 	GLUI_Master.set_glutIdleFunc(idle);
 
@@ -211,6 +214,16 @@ void Viewer::updateFrame(int state)
 void Viewer::updateFrameText()
 {
 	string text = FRAME_TEXT + to_string(curr_frame);
+
+	for (int i = 0; i < params.n_meshes; i++)
+	{
+		if (last_loaded_frame[i] < params.n_frames)
+		{
+			text += "\n";
+			text += "Mesh " + to_string(i) + ": " + to_string(last_loaded_frame[i]);
+		}
+	}
+
 	glui_frame_text->set_text(text.c_str());
 }
 //=============================================================================
@@ -221,14 +234,14 @@ void Viewer::updatePlay(int state)
 	{
 		glui_play_button->set_text(PAUSE_TEXT);
 		glui_play_button->set_name(PAUSE_TEXT);
+
+		if (curr_frame == params.n_frames)
+			curr_frame = 1;
 	}
 	else
 	{
 		glui_play_button->set_text(PLAY_TEXT);
 		glui_play_button->set_name(PLAY_TEXT);
-
-		if (curr_frame == params.n_frames)
-			curr_frame = 1;
 	}
 }
 //=============================================================================
@@ -239,10 +252,7 @@ void Viewer::display(void)
 
 	if (play && diff_time >= FRAME_FREQ && curr_frame<params.n_frames)
 	{
-		curr_frame++;
-		glui_frame_scroll->set_int_val(curr_frame);
-		updateFrameText();
-		last_time = curr_time;
+		nextFrame(curr_time);
 
 		if (curr_frame == params.n_frames)
 		{
@@ -287,13 +297,18 @@ void Viewer::display(void)
 
 	for (int i = 0; i < params.n_meshes; i++)
 	{
-		glPushMatrix();
-		glTranslatef(mesh_translation[i][0], mesh_translation[i][1], 
-			mesh_translation[i][2]);
-		glMultMatrixf(rotation);
-		drawModel(i, curr_frame - 1);
-		glPopMatrix();
+		if (is_loaded[i][curr_frame - 1])
+		{
+			glPushMatrix();
+			glTranslatef(mesh_translation[i][0], mesh_translation[i][1],
+				mesh_translation[i][2]);
+			glMultMatrixf(rotation);
+			drawModel(i, curr_frame - 1);
+			glPopMatrix();
+		}
 	}
+
+	updateFrameText();
 
 	glutSwapBuffers();
 }
@@ -364,20 +379,35 @@ void Viewer::motion(int x, int y)
 void Viewer::key(unsigned char key, int x, int y) {
 	switch (key) {
 	case UPPER_R:
-		zoom(ZOOM_INCR);
 		break;
 	case LOWER_R:
-		zoom(ZOOM_INCR);
 		break;
 	case UPPER_F:
-		zoom(-ZOOM_INCR);
 		break;
 	case LOWER_F:
-		zoom(-ZOOM_INCR);
 		break;
 	case UPPER_C:
 		break;
 	case LOWER_C:
+		break;
+	default:
+		break;
+	}
+	glutPostRedisplay();
+}
+//=============================================================================
+void Viewer::specialKey(int key, int x, int y)
+{
+	switch (key) {
+	case GLUT_KEY_UP:
+		break;
+	case GLUT_KEY_DOWN:
+		break;
+	case GLUT_KEY_LEFT:
+		nextFrame(clock(), false);
+		break;
+	case GLUT_KEY_RIGHT:
+		nextFrame(clock(), true);
 		break;
 	default:
 		break;
@@ -400,11 +430,6 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 {
 	glRotatef(180, 0, 1, 0);
 	glRotatef(-90, 0, 0, 1);
-
-	if (!is_loaded[_mesh_idx][_frame_idx])
-	{
-		loadMesh(_mesh_idx, _frame_idx);
-	}
 
 	Mesh* mesh2draw = &meshes[_mesh_idx][_frame_idx];
 
@@ -494,11 +519,15 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 			case MODE_NORMALS:
 				computeNormalColor(color, n);
 				break;
-			case MODE_SPATIAL_DIFF:
+			case MODE_POSITION_HEATMAP:
 				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx], 
 					MIN_DISTANCE, MAX_DISTANCE);
 				break;
-			case MODE_NORMAL_DIFF:
+			case MODE_XY_HEATMAP:
+				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx],
+					MIN_DISTANCE, MAX_DISTANCE, true);
+				break;
+			case MODE_NORMAL_HEATMAP:
 				computeHeatMapOrientationColor(color, n, curr_gt_normals[v_idx],
 					MIN_ORIENT_DIFF, MAX_ORIENT_DIFF);
 				break;
@@ -599,38 +628,70 @@ void Viewer::loadMeshes()
 	mesh_translation.resize(params.n_meshes);
 	mesh_color_mode.resize(params.n_meshes);
 	is_loaded.resize(params.n_meshes);
+	last_loaded_frame.resize(params.n_meshes);
+	threads.resize(params.n_meshes);
 
-	//vector<boost::thread*> threads;
 	for (int i = 0; i < params.n_meshes; i++)
 	{
 		meshes[i].resize(params.n_frames);
 		mesh_translation[i].resize(3);
 		is_loaded[i].resize(params.n_frames, false);
-		int j = 0;
-		//for (int j = 0; j < params.n_frames; j++)
-		//{
-			loadMesh(i, j);
-			//threads.push_back(
-			//	new boost::thread(
-			//	&readMesh, boost::ref(meshes[i][j]), mesh_filename, ropt)
-			//	);
-			//threads[i]->join();
-		//}
+		threads[i].resize(params.n_frames, nullptr);
 	}
 
-	//for (int i = 0; i < params.n_meshes * params.n_frames; i++)
-	//{
-	//	threads[i]->join();
-	//	delete threads[i];
-	//}
+	boost::thread_group g;
 
-	for (int i = 0; i < params.n_meshes; i++)
+	for (int mesh_idx = 0; mesh_idx < params.n_meshes; mesh_idx++)
 	{
+		string mesh_filename = getMeshFilename(mesh_idx, 0);
+		threads[mesh_idx][0] = 
+			new boost::thread(&readMesh, boost::ref(meshes[mesh_idx][0]), mesh_filename, ropt);
+		g.add_thread(threads[mesh_idx][0]);
+
+		//readMesh(meshes[mesh_idx][0], mesh_filename, ropt);
+	}
+
+	g.join_all();
+
+	//boost::thread(&readNextFrames, 1);
+	//boost::thread(&readNextFrames2, 0, 1);
+
+	//boost::thread(&readMeshNext, 1, 1);
+
+
+	//for (int i = 0; i < params.n_meshes; i++)
+	for (int i = params.n_meshes - 1; i >=0; i--)
+	{
+		//joinReadMeshThread(i, 0);
+
+		//if (params.n_frames > 1)
+		//{
+		//	int j = 1;
+		//	string mesh_filename = getMeshFilename(i, j);
+		//	threads[i][j] =
+		//		new boost::thread(
+		//		&readMesh, boost::ref(meshes[i][j]), mesh_filename, ropt);
+		//}
+
+		last_loaded_frame[i] = 1;
+
+		boost::thread(&readMeshNext, i, 1);
+
+		is_loaded[i][0] = true;
+
 		calculateCenterPoint(i);
 	}
 
 	std::cout << (clock() - start) / (double)(CLOCKS_PER_SEC / 1000)
 		<< " ms" << endl;
+
+	//for (int frame_idx = 0; frame_idx < params.n_frames; frame_idx++)
+	//{
+	//	for (int mesh_idx = 0; mesh_idx < params.n_meshes; mesh_idx++)
+	//	{
+	//		delete threads[mesh_idx][frame_idx];
+	//	}
+	//}
 }
 //=============================================================================
 void Viewer::loadMesh(const int _mesh_idx, const int _frame_idx)
@@ -757,13 +818,17 @@ GLfloat Viewer::getShading(float* _normal, vector<float> &_sh_coeff)
 //=============================================================================
 void Viewer::computeHeatMapDistanceColor(GLfloat* _color, 
 	const Mesh::Point &_vertex, const Mesh::Point &_gt_vertex, 
-	const GLfloat _min, const GLfloat _max)
+	const GLfloat _min, const GLfloat _max, const bool _xy)
 {
 	GLfloat v[3] = { _vertex[0] - _gt_vertex[0], _vertex[1] - _gt_vertex[1],
 		_vertex[2] - _gt_vertex[2] };
 	//GLfloat distance = log(sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) + 1e-10);
-	GLfloat distance = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-	distance = min(max(distance, _min), _max);
+	GLfloat distance = v[0] * v[0] + v[1] * v[1];
+	if (!_xy)
+	{
+		distance += v[2] * v[2];
+	}
+	distance = min(max(sqrt(distance), _min), _max);
 	GLfloat ratio = 2 * (distance - _min) / (_max - _min);
 	_color[0] = max(ratio - 1, 0.f);
 	_color[2] = max(1 - ratio, 0.f);
@@ -776,6 +841,7 @@ void Viewer::computeHeatMapOrientationColor(GLfloat* _color,
 {
 	GLfloat cos_a = _normal[0] * _gt_normal[0] + _normal[1] * _gt_normal[1]
 		+ _normal[2] * _gt_normal[2];
+	cos_a = min(max(cos_a, _min), _max);
 	GLfloat ratio = 2 * (cos_a - _min) / (_max - _min);
 	_color[0] = max(1 - ratio, 0.f);
 	_color[2] = max(ratio - 1, 0.f);
@@ -791,5 +857,28 @@ void Viewer::computeNormalColor(GLfloat* _color, const Mesh::Normal &_normal)
 	_color[0] = (-_normal[1] + 1) / 2;
 	_color[1] = (-_normal[0] + 1) / 2;
 	_color[2] = (-_normal[2] + 1) / 2;
+}
+//=============================================================================
+void Viewer::nextFrame(clock_t _curr_time, bool forward)
+{
+	curr_frame = max(min (curr_frame + (forward ? 1 : -1), params.n_frames), 1);
+	glui_frame_scroll->set_int_val(curr_frame);
+	updateFrameText();
+	last_time = _curr_time;
+}
+//=============================================================================
+void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
+{
+	string mesh_filename = getMeshFilename(_mesh_idx, _frame_idx);
+	readMesh(meshes[_mesh_idx][_frame_idx], mesh_filename, ropt);
+	is_loaded[_mesh_idx][_frame_idx] = true;
+	last_loaded_frame[_mesh_idx]++;
+
+	_frame_idx++;
+	if (_frame_idx < params.n_frames)
+	{
+		boost::thread(
+			&readMeshNext, _mesh_idx, _frame_idx);
+	} 
 }
 //=============================================================================

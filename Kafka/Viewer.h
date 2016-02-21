@@ -12,7 +12,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "Parameters.h"
-#include "Mesh.h"
+#include "MeshReader.h"
 //=============================================================================
 /**** KEYBOARD KEYS ****/
 #define UPPER_A 65
@@ -46,13 +46,14 @@
 #define UPPER_W 87
 #define LOWER_W 119
 
-#define MODE_INTENSITY		0
-#define MODE_ALBEDO			1
-#define MODE_SHADING		2
-#define MODE_UNICOLOR		3
-#define MODE_NORMALS		4
-#define MODE_SPATIAL_DIFF	5
-#define MODE_NORMAL_DIFF	6
+#define MODE_INTENSITY			0
+#define MODE_ALBEDO				1
+#define MODE_SHADING			2
+#define MODE_UNICOLOR			3
+#define MODE_NORMALS			4
+#define MODE_POSITION_HEATMAP	5
+#define MODE_XY_HEATMAP			6
+#define MODE_NORMAL_HEATMAP		7
 
 #define MODE_NO_LIGHT	0
 #define MODE_GL_LIGHT	1
@@ -60,7 +61,7 @@
 #define MIN_DISTANCE	0
 #define MAX_DISTANCE	3
 
-#define MIN_ORIENT_DIFF	-1
+#define MIN_ORIENT_DIFF	0.866025403784439	// cos(pi/6)
 #define MAX_ORIENT_DIFF	1
 
 //=============================================================================
@@ -104,6 +105,8 @@ private:
 	/* MAIN VARIABLES */
 	static vector<vector<Mesh>> meshes;
 	static vector<vector<bool>> is_loaded;
+	static vector<int> last_loaded_frame;
+	static vector<vector<boost::thread*>> threads;
 	static vector<Mesh::Point> curr_gt_vertices;
 	static vector<Mesh::Normal> curr_gt_normals;
 	static int curr_frame;
@@ -160,6 +163,7 @@ private:
 	static void mouse(int button, int state, int x, int y);
 	static void motion(int x, int y);
 	static void key(unsigned char key, int x, int y);
+	static void specialKey(int key, int x, int y);
 	static void idle(void);
 	static void updateFrame(int state);
 	static void updateFrameText();
@@ -174,6 +178,7 @@ private:
 	static void calculateCenterPoint(int _mesh_idx); /* calculates rotation point based on mesh size */
 	static string cvtIntToString(int _n, int _no_digits);
 	static int numDigits(int _number);
+	static void nextFrame(clock_t _curr_time, bool forward = true);
 
 	static void loadMeshes();
 	static void loadMesh(const int _mesh_idx, const int _frame_idx);
@@ -181,10 +186,12 @@ private:
 	static void readSHCoeff(vector<float> &_sh_coeff, const string _sh_coeff_filename);
 	static GLfloat getShading(float* _normal, vector<float> &_sh_coeff);
 	static void computeHeatMapDistanceColor(GLfloat* _color, const Mesh::Point &_vertex,
-		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max);
+		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max, 
+		const bool _xy = false);
 	static void computeHeatMapOrientationColor(GLfloat* _color, const Mesh::Point &_vertex,
 		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max);
 	static void computeNormalColor(GLfloat* _color, const Mesh::Normal &_normal);
+	static void readMeshNext(int _mesh_idx, int _frame_idx);
 
 public:
 	static void initialize(int *argcp, char **argv);
