@@ -6,13 +6,13 @@
 #include <stdlib.h>
 
 #include <GL/glew.h>
-#include <GL/glut.h>
+#include <GL/freeglut.h>
 #include <GL/glui.h>
 
 #include <boost/thread/thread.hpp>
 
 #include "Parameters.h"
-#include "MeshReader.h"
+#include "Mesh.h"
 //=============================================================================
 /**** KEYBOARD KEYS ****/
 #define UPPER_A 65
@@ -107,6 +107,7 @@ private:
 	static vector<vector<bool>> is_loaded;
 	static vector<int> last_loaded_frame;
 	static vector<vector<boost::thread*>> threads;
+	static bool continue_loading;
 	static vector<Mesh::Point> curr_gt_vertices;
 	static vector<Mesh::Normal> curr_gt_normals;
 	static int curr_frame;

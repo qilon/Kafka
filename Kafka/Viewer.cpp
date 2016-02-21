@@ -52,6 +52,7 @@ vector<vector<Mesh>> Viewer::meshes;
 vector<vector<bool>> Viewer::is_loaded;
 vector<int> Viewer::last_loaded_frame;
 vector<vector<boost::thread*>> Viewer::threads;
+bool Viewer::continue_loading = true;
 vector<Mesh::Point> Viewer::curr_gt_vertices;
 vector<Mesh::Normal> Viewer::curr_gt_normals;
 int Viewer::curr_frame = 1;
@@ -112,6 +113,7 @@ void Viewer::initGLUT(int *argc, char **argv)
 
 	glutDisplayFunc(display);
 	glutMotionFunc(motion);
+	glutCloseFunc(destroy);
 
 	glewInit();
 
@@ -610,7 +612,25 @@ void Viewer::run()
 //=============================================================================
 void Viewer::destroy()
 {
-
+	continue_loading = false;
+	for (int mesh_idx = 0; mesh_idx < params.n_meshes; mesh_idx++)
+	{
+		int last_frame_idx = last_loaded_frame[mesh_idx];
+		if (last_frame_idx < params.n_frames)
+		{
+			if (threads[mesh_idx][last_frame_idx] != nullptr)
+			{
+				threads[mesh_idx][last_frame_idx]->join();
+				delete threads[mesh_idx][last_frame_idx];
+				threads[mesh_idx][last_frame_idx] = nullptr;
+			}
+		}
+		for (int frame_idx = 0; frame_idx < last_frame_idx; frame_idx++)
+		{
+			delete threads[mesh_idx][frame_idx];
+			threads[mesh_idx][frame_idx] = nullptr;
+		}
+	}
 }
 //=============================================================================
 void Viewer::loadMeshes()
@@ -639,43 +659,23 @@ void Viewer::loadMeshes()
 		threads[i].resize(params.n_frames, nullptr);
 	}
 
-	boost::thread_group g;
-
 	for (int mesh_idx = 0; mesh_idx < params.n_meshes; mesh_idx++)
 	{
 		string mesh_filename = getMeshFilename(mesh_idx, 0);
 		threads[mesh_idx][0] = 
 			new boost::thread(&readMesh, boost::ref(meshes[mesh_idx][0]), mesh_filename, ropt);
-		g.add_thread(threads[mesh_idx][0]);
-
-		//readMesh(meshes[mesh_idx][0], mesh_filename, ropt);
+		threads[mesh_idx][0]->join();
 	}
 
-	g.join_all();
-
-	//boost::thread(&readNextFrames, 1);
-	//boost::thread(&readNextFrames2, 0, 1);
-
-	//boost::thread(&readMeshNext, 1, 1);
-
-
-	//for (int i = 0; i < params.n_meshes; i++)
-	for (int i = params.n_meshes - 1; i >=0; i--)
+	if (params.n_frames > 1)
 	{
-		//joinReadMeshThread(i, 0);
+		threads[0][1] = new boost::thread(&readMeshNext, 0, 1);
+	}
 
-		//if (params.n_frames > 1)
-		//{
-		//	int j = 1;
-		//	string mesh_filename = getMeshFilename(i, j);
-		//	threads[i][j] =
-		//		new boost::thread(
-		//		&readMesh, boost::ref(meshes[i][j]), mesh_filename, ropt);
-		//}
+	for (int i = 0; i < params.n_meshes; i++)
+	{
 
 		last_loaded_frame[i] = 1;
-
-		boost::thread(&readMeshNext, i, 1);
 
 		is_loaded[i][0] = true;
 
@@ -684,14 +684,6 @@ void Viewer::loadMeshes()
 
 	std::cout << (clock() - start) / (double)(CLOCKS_PER_SEC / 1000)
 		<< " ms" << endl;
-
-	//for (int frame_idx = 0; frame_idx < params.n_frames; frame_idx++)
-	//{
-	//	for (int mesh_idx = 0; mesh_idx < params.n_meshes; mesh_idx++)
-	//	{
-	//		delete threads[mesh_idx][frame_idx];
-	//	}
-	//}
 }
 //=============================================================================
 void Viewer::loadMesh(const int _mesh_idx, const int _frame_idx)
@@ -874,11 +866,17 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 	is_loaded[_mesh_idx][_frame_idx] = true;
 	last_loaded_frame[_mesh_idx]++;
 
-	_frame_idx++;
-	if (_frame_idx < params.n_frames)
+	_mesh_idx++;
+	if (_mesh_idx == params.n_meshes)
 	{
-		boost::thread(
-			&readMeshNext, _mesh_idx, _frame_idx);
+		_frame_idx++;
+		_mesh_idx = 0;
+	}
+
+	if (continue_loading && _frame_idx < params.n_frames)
+	{
+		threads[_mesh_idx][_frame_idx] =
+			new boost::thread(&readMeshNext, _mesh_idx, _frame_idx);
 	} 
 }
 //=============================================================================

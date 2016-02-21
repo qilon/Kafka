@@ -145,13 +145,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="MeshReader.cpp" />
     <ClCompile Include="Viewer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mesh.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MeshReader.h" />
     <ClInclude Include="Parameters.h" />
     <ClInclude Include="Viewer.h" />
     <ClInclude Include="Mesh.h" />
