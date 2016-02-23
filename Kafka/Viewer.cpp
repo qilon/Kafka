@@ -94,7 +94,8 @@ GLUI_Rotation* Viewer::glui_rotation = nullptr;
 GLUI_Translation* Viewer::glui_trans_xy = nullptr;
 GLUI_Translation* Viewer::glui_trans_z = nullptr;
 vector<GLUI_Listbox*> Viewer::glui_color_list;
-GLUI_Listbox* Viewer::glui_light_list;
+GLUI_Listbox* Viewer::glui_light_list = nullptr;
+GLUI_StaticText* Viewer::glui_loading_text = nullptr;
 //=============================================================================
 void Viewer::initGLUT(int *argc, char **argv)
 {
@@ -169,7 +170,6 @@ void Viewer::initGLUIComponents(void)
 
 	glui_frame_text = new GLUI_StaticText(glui_panel_1, "");
 	glui_frame_text->set_alignment(GLUI_ALIGN_CENTER);
-	updateFrameText();
 
 	glui->add_column_to_panel(glui_panel_1, 0);
 
@@ -205,6 +205,11 @@ void Viewer::initGLUIComponents(void)
 	{
 		glui_light_list->add_item(i, STRING_LIGHT_MODES[i]);
 	}
+
+	glui->add_column_to_panel(glui_panel_2, 0);
+	glui_loading_text = new GLUI_StaticText(glui_panel_2, "");
+	glui_loading_text->set_alignment(GLUI_ALIGN_CENTER);
+	updateFrameText();
 }
 //=============================================================================
 void Viewer::updateFrame(int state)
@@ -216,17 +221,19 @@ void Viewer::updateFrame(int state)
 void Viewer::updateFrameText()
 {
 	string text = FRAME_TEXT + to_string(curr_frame);
+	glui_frame_text->set_text(text.c_str());
 
+	string loading_text = "";
 	for (int i = 0; i < params.n_meshes; i++)
 	{
 		if (last_loaded_frame[i] < params.n_frames)
 		{
-			text += "\n";
-			text += "Mesh " + to_string(i) + ": " + to_string(last_loaded_frame[i]);
+			loading_text += "Mesh " + to_string(i) + ": " 
+				+ to_string(last_loaded_frame[i]) + "/" + to_string(params.n_frames);
+			loading_text += "\n";
 		}
 	}
-
-	glui_frame_text->set_text(text.c_str());
+	glui_loading_text->set_text(loading_text.c_str());
 }
 //=============================================================================
 void Viewer::updatePlay(int state)

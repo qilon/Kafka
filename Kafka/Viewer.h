@@ -148,6 +148,8 @@ private:
 	static GLUI_Translation* glui_trans_z;
 	static vector<GLUI_Listbox*> glui_color_list;
 	static GLUI_Listbox* glui_light_list;
+	static GLUI_StaticText* glui_loading_text;
+
 
 	//=========================================================================
 
