@@ -13,7 +13,7 @@ int readMesh(Mesh& _mesh, const string _filename, OpenMesh::IO::Options _ropt)
 
 	if (!OpenMesh::IO::read_mesh(_mesh, _filename, _ropt))
 	{
-		std::cout << "Could not read file: " << _filename << std::endl << std::endl;
+		cout << "Could not read file: " << _filename << endl << endl;
 
 		return -1;
 	}

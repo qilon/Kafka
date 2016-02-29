@@ -4,6 +4,7 @@
 // UCL - MSc Computer Graphics, Vision and Imaging
 //*****************************************************************************
 #include <stdlib.h>
+#include <fstream>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
