@@ -838,12 +838,24 @@ void Viewer::computeHeatMapOrientationColor(GLfloat* _color,
 	const Mesh::Point &_normal, const Mesh::Point &_gt_normal,
 	const GLfloat _min, const GLfloat _max)
 {
-	GLfloat cos_a = _normal[0] * _gt_normal[0] + _normal[1] * _gt_normal[1]
-		+ _normal[2] * _gt_normal[2];
-	cos_a = min(max(cos_a, _min), _max);
-	GLfloat ratio = 2 * (cos_a - _min) / (_max - _min);
-	_color[0] = max(1 - ratio, 0.f);
-	_color[2] = max(ratio - 1, 0.f);
+	// GLfloat cos_a = _normal[0] * _gt_normal[0] + _normal[1] * _gt_normal[1]
+	// 	+ _normal[2] * _gt_normal[2];
+	// cos_a = min(max(cos_a, _min), _max);
+	// GLfloat ratio = 2 * (cos_a - _min) / (_max - _min);
+	// _color[0] = max(1 - ratio, 0.f);
+	// _color[2] = max(ratio - 1, 0.f);
+	// _color[1] = 1 - _color[0] - _color[2];
+
+	GLfloat diff_nx = _normal[0] - _gt_normal[0];
+	GLfloat diff_ny = _normal[1] - _gt_normal[1];
+	GLfloat diff_nz = _normal[2] - _gt_normal[2];
+	GLfloat dist_n = sqrt(diff_nx * diff_nx + diff_ny * diff_ny 
+		+ diff_nz * diff_nz);
+	dist_n = min(max(dist_n, _min), _max);
+	GLfloat ratio = 2 * (dist_n - _min) / (_max - _min);
+
+	_color[0] = max(ratio - 1, 0.f);
+	_color[2] = max(1 - ratio, 0.f);
 	_color[1] = 1 - _color[0] - _color[2];
 }
 //=============================================================================

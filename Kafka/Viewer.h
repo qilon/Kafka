@@ -62,8 +62,13 @@
 #define MIN_DISTANCE	0
 #define MAX_DISTANCE	3
 
-#define MIN_ORIENT_DIFF	0.866025403784439	// cos(pi/6)
-#define MAX_ORIENT_DIFF	1
+// #define MIN_ORIENT_DIFF	0.866025403784439	// cos(pi/6)
+// #define MAX_ORIENT_DIFF	1
+
+#define MIN_ORIENT_DIFF	0
+// #define MAX_ORIENT_DIFF	0.517638090205041	// pi/6
+#define MAX_ORIENT_DIFF	0.765366864730180	// pi/4
+// #define MAX_ORIENT_DIFF	1	// 2*pi/6
 
 //=============================================================================
 using namespace std;
