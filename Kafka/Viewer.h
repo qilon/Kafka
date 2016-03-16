@@ -11,6 +11,13 @@
 #include <GL/glui.h>
 
 #include <boost/thread/thread.hpp>
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/moment.hpp>
+
+#include <Eigen/Dense>
+#include <Eigen/SVD>
 
 #include "Parameters.h"
 #include "Mesh.h"
@@ -72,6 +79,8 @@
 
 //=============================================================================
 using namespace std;
+using namespace boost::accumulators;
+using namespace Eigen;
 //=============================================================================
 class Viewer
 {
@@ -121,6 +130,17 @@ private:
 	static clock_t last_time;
 
 	static vector<vector<float>> sh_coeff;
+
+	// colors per point per frame
+	static vector< vector<float> > red;
+	static vector< vector<float> > green;
+	static vector< vector<float> > blue;
+
+	static vector< vector<float> > red_filtered;
+	static vector< vector<float> > green_filtered;
+	static vector< vector<float> > blue_filtered;
+
+	static vector< Eigen::MatrixXf > rgb;
 	
 	//static VectorXi mode;
 
@@ -201,6 +221,8 @@ private:
 		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max);
 	static void computeNormalColor(GLfloat* _color, const Mesh::Normal &_normal);
 	static void readMeshNext(int _mesh_idx, int _frame_idx);
+	static void addToFinalColors(int _frame_idx);
+	static void saveFinalMesh();
 
 public:
 	static void initialize(int *argcp, char **argv);

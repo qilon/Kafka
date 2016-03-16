@@ -23,3 +23,16 @@ int readMesh(Mesh& _mesh, const string _filename, OpenMesh::IO::Options _ropt)
 	return 0;
 }
 //=============================================================================
+int writeMesh(Mesh& _mesh, const string _filename,
+	OpenMesh::IO::Options _wopt)
+{
+	if (!OpenMesh::IO::write_mesh(_mesh, _filename, _wopt))
+	{
+		cout << "Could not write file: " << _filename << endl << endl;
+
+		return -1;
+	}
+
+	return 0;
+}
+//=============================================================================

@@ -48,3 +48,5 @@ typedef OpenMesh::PolyMesh_ArrayKernelT<Traits> Mesh;
 //=============================================================================
 int readMesh(Mesh& _mesh, const std::string _filename, OpenMesh::IO::Options _ropt);
 //=============================================================================
+int writeMesh(Mesh& _mesh, const std::string _filename, OpenMesh::IO::Options _wopt);
+//=============================================================================

@@ -61,6 +61,18 @@ clock_t Viewer::last_time;
 
 vector<vector<float>> Viewer::sh_coeff;
 
+// colors per point per frame
+vector< vector<float> > Viewer::red;
+vector< vector<float> > Viewer::green;
+vector< vector<float> > Viewer::blue;
+
+vector< vector<float> > Viewer::red_filtered;
+vector< vector<float> > Viewer::green_filtered;
+vector< vector<float> > Viewer::blue_filtered;
+
+vector< Eigen::MatrixXf > Viewer::rgb;
+
+
 //MatrixXf** Viewer::intensities = nullptr;
 //VectorXi Viewer::mode;
 
@@ -674,6 +686,29 @@ void Viewer::loadMeshes()
 		threads[mesh_idx][0]->join();
 	}
 
+	int num_vertices = meshes[0][0].n_vertices();
+
+	//red.resize(num_vertices);
+	//green.resize(num_vertices);
+	//blue.resize(num_vertices);
+
+	//red_filtered.resize(num_vertices);
+	//green_filtered.resize(num_vertices);
+	//blue_filtered.resize(num_vertices);
+
+	rgb.resize(num_vertices);
+
+	for (int i = 0; i < num_vertices; i++)
+	{
+		//red[i].resize(params.n_frames);
+		//blue[i].resize(params.n_frames);
+		//green[i].resize(params.n_frames);
+
+		rgb[i].resize(3, params.n_frames);
+	}
+
+	addToFinalColors(0);
+
 	if (params.n_frames > 1)
 	{
 		threads[0][1] = new boost::thread(&readMeshNext, 0, 1);
@@ -885,6 +920,11 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 	is_loaded[_mesh_idx][_frame_idx] = true;
 	last_loaded_frame[_mesh_idx]++;
 
+	if (_mesh_idx == 0)
+	{
+		addToFinalColors(_frame_idx);
+	}
+
 	_mesh_idx++;
 	if (_mesh_idx == params.n_meshes)
 	{
@@ -897,5 +937,186 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 		threads[_mesh_idx][_frame_idx] =
 			new boost::thread(&readMeshNext, _mesh_idx, _frame_idx);
 	} 
+	else
+	{
+		saveFinalMesh();
+	}
+}
+//=============================================================================
+void Viewer::addToFinalColors(int _frame_idx)
+{
+	Mesh &model = meshes[0][_frame_idx];
+
+	Mesh::VertexIter v_it;
+	Mesh::VertexIter v_end = model.vertices_end();
+	for (v_it = model.vertices_begin(); v_it != v_end; ++v_it)
+	{
+		int v_idx = v_it->idx();
+		Mesh::Color c = model.color(*v_it);
+
+		float gray = 0.2989 * c[0] + 0.5870 * c[1] + 0.1140 * c[2];
+
+		//if (gray < params.specular_threshold)
+		//{
+		//	red_filtered[v_idx].push_back(c[0]);
+		//	green_filtered[v_idx].push_back(c[1]);
+		//	blue_filtered[v_idx].push_back(c[2]);
+		//}
+		//red[v_idx][_frame_idx] = c[0];
+		//green[v_idx][_frame_idx] = c[1];
+		//blue[v_idx][_frame_idx] = c[2];
+
+		rgb[v_idx].col(_frame_idx) = Vector3f(c[0], c[1], c[2]);
+	}
+}
+//=============================================================================
+void Viewer::saveFinalMesh()
+{
+	Mesh final_mesh = meshes[0][0];
+	Mesh::VertexIter v_it;
+	Mesh::VertexIter v_end = final_mesh.vertices_end();
+
+	OpenMesh::IO::Options wopt;
+	wopt += OpenMesh::IO::Options::VertexColor;
+	wopt += OpenMesh::IO::Options::VertexNormal;
+	wopt += OpenMesh::IO::Options::Binary;
+
+	//// Mean color
+	//for (v_it = final_mesh.vertices_begin(); v_it != v_end; ++v_it)
+	//{
+	//	int v_idx = v_it->idx();
+
+	//	accumulator_set<float, stats<tag::mean> > acc_red;
+	//	for_each(red[v_idx].begin(), red[v_idx].end(), 
+	//		bind<void>(ref(acc_red), _1)
+	//		);
+	//	float r = mean(acc_red);
+
+	//	accumulator_set<float, stats<tag::mean> > acc_green;
+	//	for_each(green[v_idx].begin(), green[v_idx].end(), 
+	//		bind<void>(ref(acc_green), _1));
+	//	float g = mean(acc_green);
+
+	//	accumulator_set<float, stats<tag::mean> > acc_blue;
+	//	for_each(blue[v_idx].begin(), blue[v_idx].end(),
+	//		bind<void>(ref(acc_blue), _1));
+	//	float b = mean(acc_blue);
+
+	//	Mesh::Color c = Mesh::Color(r ,g, b);
+
+	//	final_mesh.set_color(*v_it, c);
+	//}
+	//writeMesh(final_mesh, params.mesh_prefix[0] + "mean" + params.mesh_suffix[0], wopt);
+
+	//// Median color
+	///*int n = params.n_frames / 2;*/
+	//for (v_it = final_mesh.vertices_begin(); v_it != v_end; ++v_it)
+	//{
+	//	int v_idx = v_it->idx();
+
+	//	int n = red_filtered[v_idx].size() / 2;
+
+	//	float r, g, b;
+	//	if (n > 0)
+	//	{
+	//		nth_element(red_filtered[v_idx].begin(), red_filtered[v_idx].begin() + n, red_filtered[v_idx].end());
+	//		r = red_filtered[v_idx][n];
+
+	//		nth_element(green_filtered[v_idx].begin(), green_filtered[v_idx].begin() + n, green_filtered[v_idx].end());
+	//		g = green_filtered[v_idx][n];
+
+	//		nth_element(blue_filtered[v_idx].begin(), blue_filtered[v_idx].begin() + n, blue_filtered[v_idx].end());
+	//		b = blue_filtered[v_idx][n];
+	//	}
+	//	else
+	//	{
+	//		r = *min_element(red[v_idx].begin(), red[v_idx].end());
+	//		g = *min_element(green[v_idx].begin(), green[v_idx].end());
+	//		b = *min_element(blue[v_idx].begin(), blue[v_idx].end());
+	//	}
+
+	//	Mesh::Color c = Mesh::Color(r, g, b);
+
+	//	final_mesh.set_color(*v_it, c);
+	//}
+	//writeMesh(final_mesh, params.mesh_prefix[0] + "median" + params.mesh_suffix[0], wopt);
+
+	//// Max color
+	//for (v_it = final_mesh.vertices_begin(); v_it != v_end; ++v_it)
+	//{
+	//	int v_idx = v_it->idx();
+
+	//	float r, g, b;
+
+	//	if (red_filtered[v_idx].size() > 0)
+	//	{
+	//		r = *max_element(red_filtered[v_idx].begin(), red_filtered[v_idx].end());
+	//		g = *max_element(green_filtered[v_idx].begin(), green_filtered[v_idx].end());
+	//		b = *max_element(blue_filtered[v_idx].begin(), blue_filtered[v_idx].end());
+	//	}
+	//	else
+	//	{
+	//		r = *min_element(red[v_idx].begin(), red[v_idx].end());
+	//		g = *min_element(green[v_idx].begin(), green[v_idx].end());
+	//		b = *min_element(blue[v_idx].begin(), blue[v_idx].end());
+	//	}
+
+	//	Mesh::Color c = Mesh::Color(r, g, b);
+
+	//	final_mesh.set_color(*v_it, c);
+	//}
+	//writeMesh(final_mesh, params.mesh_prefix[0] + "max_" 
+	//	+ to_string(params.specular_threshold) + params.mesh_suffix[0], wopt);
+
+	//// Min color
+	//for (v_it = final_mesh.vertices_begin(); v_it != v_end; ++v_it)
+	//{
+	//	int v_idx = v_it->idx();
+
+	//	float r = *min_element(red[v_idx].begin(), red[v_idx].end());
+	//	float g = *min_element(green[v_idx].begin(), green[v_idx].end());
+	//	float b = *min_element(blue[v_idx].begin(), blue[v_idx].end());
+
+	//	Mesh::Color c = Mesh::Color(r, g, b);
+
+	//	final_mesh.set_color(*v_it, c);
+	//}
+	//writeMesh(final_mesh, params.mesh_prefix[0] + "min" + params.mesh_suffix[0], wopt);
+
+	// SVD color
+
+	string rgb_filename = params.mesh_prefix[0] + "rgb" + ".txt";
+	ofstream ofs;
+	ofs.open(rgb_filename, ofstream::out | ofstream::trunc);
+
+	for (v_it = final_mesh.vertices_begin(); v_it != v_end; ++v_it)
+	{
+		int v_idx = v_it->idx();
+
+		JacobiSVD<MatrixXf> svd(rgb[v_idx].transpose(), ComputeFullU | ComputeFullV);
+
+		Vector3f v(0, 0, 0);
+
+		VectorXf scales = rgb[v_idx].transpose() * svd.matrixV().col(0);
+
+		float max_scale = scales.maxCoeff();
+		
+		if (svd.singularValues()(0) > 0.0f)
+		{
+			v = max_scale * svd.matrixV().col(0);
+			//v = svd.matrixV().col(0) * (1 - (1 / svd.singularValues()(0)));
+			//v = svd.matrixV().col(0) * svd.singularValues()(0);
+
+			ofs << rgb[v_idx] << endl;
+		}
+
+		Mesh::Color c = Mesh::Color(v(0), v(1), v(2));
+
+		final_mesh.set_color(*v_it, c);
+	}
+	writeMesh(final_mesh, params.mesh_prefix[0] + "svd"
+		+ params.mesh_suffix[0], wopt);
+
+	ofs.close();
 }
 //=============================================================================

@@ -32,6 +32,8 @@
 #define MESH_HAS_ALBEDO			"mesh_has_albedo"
 #define MESH_SH_COEFF_FILENAME	"mesh_sh_coeff_filename"
 
+#define SPECULAR_THRESHOLD	"specular_threshold"
+
 #include <cmath>
 #include <string>
 #include <vector>
@@ -91,6 +93,8 @@ namespace parameters {
 			mesh_n_digits[1] = 4;
 			mesh_has_albedo[1] = true;
 			mesh_sh_coeff_filename[1] = "C:/Users/Qi/Desktop/generated/images/x_-1_z_1_a_0.1/_sh_coeff.txt";
+
+			specular_threshold = 0.8;
 		}
 
 		// Window parameters
@@ -126,6 +130,8 @@ namespace parameters {
 		vector<int> mesh_n_digits;
 		vector<int> mesh_has_albedo;
 		vector<string> mesh_sh_coeff_filename;
+
+		float specular_threshold;
 
 
 		// Load parameters from an ini file
@@ -250,6 +256,11 @@ namespace parameters {
 			if (!fs[MESH_HAS_ALBEDO].empty())
 			{
 				fs[MESH_HAS_ALBEDO] >> mesh_has_albedo;
+			}
+
+			if (!fs[SPECULAR_THRESHOLD].empty())
+			{
+				fs[SPECULAR_THRESHOLD] >> specular_threshold;
 			}
 		}
 
