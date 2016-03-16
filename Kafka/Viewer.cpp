@@ -61,6 +61,12 @@ clock_t Viewer::last_time;
 
 vector<vector<float>> Viewer::sh_coeff;
 
+int Viewer::next_mesh_idx = 1;
+vector<int> Viewer::n_inter_frames;
+MatrixXf Viewer::prev_shape;
+MatrixXf Viewer::prev_color;
+OpenMesh::IO::Options Viewer::wopt;
+
 // colors per point per frame
 vector< vector<float> > Viewer::red;
 vector< vector<float> > Viewer::green;
@@ -118,7 +124,7 @@ void Viewer::initGLUT(int *argc, char **argv)
 	glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - params.window_width) / 2,
 		10);
 
-	window_id = glutCreateWindow(params.mesh_prefix[1].c_str());
+	window_id = glutCreateWindow(params.mesh_prefix[0].c_str());
 
 	// Uncomment to enable transparencies
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -616,6 +622,12 @@ void Viewer::initialize(int *argc, char **argv)
 		mesh_color_mode[i] = MODE_INTENSITY;
 	}
 
+	n_inter_frames.resize(params.n_frames, 0);
+
+	wopt += OpenMesh::IO::Options::VertexColor;
+	wopt += OpenMesh::IO::Options::VertexNormal;
+	wopt += OpenMesh::IO::Options::Binary;
+
 	loadMeshes();
 
 	initGLUT(argc, argv);
@@ -685,6 +697,11 @@ void Viewer::loadMeshes()
 			new boost::thread(&readMesh, boost::ref(meshes[mesh_idx][0]), mesh_filename, ropt);
 		threads[mesh_idx][0]->join();
 	}
+
+	cvtMeshVerticesToMatrix(meshes[0][0], prev_shape, CVT_VERTEX);
+	cvtMeshVerticesToMatrix(meshes[0][0], prev_color, CVT_COLOR);
+	
+	saveIntermidiateFrame(meshes[0][0], next_mesh_idx, wopt);
 
 	int num_vertices = meshes[0][0].n_vertices();
 
@@ -920,10 +937,13 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 	is_loaded[_mesh_idx][_frame_idx] = true;
 	last_loaded_frame[_mesh_idx]++;
 
-	if (_mesh_idx == 0)
-	{
-		addToFinalColors(_frame_idx);
-	}
+	//if (_mesh_idx == 0)
+	//{
+	//	addToFinalColors(_frame_idx);
+	//}
+
+	saveIntermidiateFrames(meshes[_mesh_idx][_frame_idx], _frame_idx,
+		prev_shape, prev_color);
 
 	_mesh_idx++;
 	if (_mesh_idx == params.n_meshes)
@@ -939,7 +959,12 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 	} 
 	else
 	{
-		saveFinalMesh();
+		//saveFinalMesh();
+
+		std::ofstream ofs(params.save_n_interframes_filename);
+		std::ostream_iterator<float> output_iterator(ofs, "\n");
+		std::copy(n_inter_frames.begin(), n_inter_frames.end(), output_iterator);
+		ofs.close();
 	}
 }
 //=============================================================================
@@ -1118,5 +1143,111 @@ void Viewer::saveFinalMesh()
 		+ params.mesh_suffix[0], wopt);
 
 	ofs.close();
+}
+//=============================================================================
+void Viewer::cvtMeshVerticesToMatrix(const Mesh &_mesh, MatrixXf &_m, int _mode)
+{
+	_m.resize(_mesh.n_vertices(), 3);
+
+	Mesh::ConstVertexIter v_it;
+	Mesh::ConstVertexIter v_end = _mesh.vertices_end();
+	for (v_it = _mesh.vertices_begin(); v_it != v_end; ++v_it)
+	{
+		int v_idx = v_it->idx();
+
+		switch (_mode)
+		{
+		case CVT_VERTEX:
+		{
+			Mesh::Point p = _mesh.point(*v_it);
+
+			_m(v_idx, 0) = p[0];
+			_m(v_idx, 1) = p[1];
+			_m(v_idx, 2) = p[2];
+		}
+		break;
+		case CVT_NORMAL:
+		{
+			Mesh::Normal n = _mesh.normal(*v_it);
+
+			_m(v_idx, 0) = n[0];
+			_m(v_idx, 1) = n[1];
+			_m(v_idx, 2) = n[2];
+		}
+		break;
+		case CVT_COLOR:
+		{
+			Mesh::Color c = _mesh.color(*v_it);
+
+			_m(v_idx, 0) = c[0];
+			_m(v_idx, 1) = c[1];
+			_m(v_idx, 2) = c[2];
+		}
+		break;
+		default:
+			break;
+		}
+	}
+}
+//=============================================================================
+void Viewer::saveIntermidiateFrames(const Mesh &_curr_mesh, int _frame_idx, 
+	MatrixXf &_prev_shape, MatrixXf &_prev_color)
+{
+	MatrixXf curr_shape;
+	cvtMeshVerticesToMatrix(_curr_mesh, curr_shape, CVT_VERTEX);
+	MatrixXf curr_color;
+	cvtMeshVerticesToMatrix(_curr_mesh, curr_color, CVT_COLOR);
+
+	MatrixXf c_diff = curr_color - _prev_color;
+	MatrixXf v_diff = curr_shape - _prev_shape;
+	float max_v_diff_norm = v_diff.rowwise().norm().maxCoeff();
+
+	int curr_n_inter_frames = ceil(max_v_diff_norm) - 1;
+	n_inter_frames[_frame_idx] = curr_n_inter_frames;
+
+	Mesh new_mesh = _curr_mesh;
+	for (int i = 0; i < curr_n_inter_frames; i++)
+	{
+		float ratio = float(i + 1) / float(curr_n_inter_frames + 1);
+		Mesh::ConstVertexIter v_it;
+		Mesh::ConstVertexIter v_end = new_mesh.vertices_end();
+		for (v_it = new_mesh.vertices_begin(); v_it != v_end; ++v_it)
+		{
+			int v_idx = v_it->idx();
+
+			Mesh::Point p = Mesh::Point(
+				_prev_shape(v_idx, 0) + ratio * v_diff(v_idx, 0),
+				_prev_shape(v_idx, 1) + ratio * v_diff(v_idx, 1),
+				_prev_shape(v_idx, 2) + ratio * v_diff(v_idx, 2)
+				);
+			new_mesh.set_point(*v_it, p);
+
+			Mesh::Color c = Mesh::Color(
+				_prev_color(v_idx, 0) + ratio * c_diff(v_idx, 0),
+				_prev_color(v_idx, 1) + ratio * c_diff(v_idx, 1),
+				_prev_color(v_idx, 2) + ratio * c_diff(v_idx, 2)
+				);
+			new_mesh.set_color(*v_it, c);
+		}
+		new_mesh.update_normals();
+
+		saveIntermidiateFrame(new_mesh, next_mesh_idx, wopt);
+	}
+
+	_prev_shape = curr_shape;
+	_prev_color = curr_color;
+
+	saveIntermidiateFrame(_curr_mesh, next_mesh_idx, wopt);
+}
+//=============================================================================
+void Viewer::saveIntermidiateFrame(const Mesh &_mesh, int &_mesh_idx, 
+	const OpenMesh::IO::Options _wopt)
+{
+	int save_idx = params.save_mesh_first_idx + _mesh_idx - 1;
+	string mesh_filename = params.save_mesh_prefix
+		+ cvtIntToString(save_idx, params.save_mesh_n_digits)
+		+ params.save_mesh_suffix;
+	writeMesh(_mesh, mesh_filename, _wopt);
+	_mesh_idx++;
 }
 //=============================================================================

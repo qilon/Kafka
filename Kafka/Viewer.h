@@ -77,6 +77,10 @@
 #define MAX_ORIENT_DIFF	0.765366864730180	// pi/4
 // #define MAX_ORIENT_DIFF	1	// 2*pi/6
 
+#define CVT_VERTEX	0
+#define CVT_NORMAL	1
+#define CVT_COLOR	2
+
 //=============================================================================
 using namespace std;
 using namespace boost::accumulators;
@@ -130,6 +134,12 @@ private:
 	static clock_t last_time;
 
 	static vector<vector<float>> sh_coeff;
+
+	static int next_mesh_idx;
+	static vector<int> n_inter_frames;
+	static MatrixXf prev_shape;
+	static MatrixXf prev_color;
+	static OpenMesh::IO::Options wopt;
 
 	// colors per point per frame
 	static vector< vector<float> > red;
@@ -223,6 +233,12 @@ private:
 	static void readMeshNext(int _mesh_idx, int _frame_idx);
 	static void addToFinalColors(int _frame_idx);
 	static void saveFinalMesh();
+	static void cvtMeshVerticesToMatrix(const Mesh &_mesh, MatrixXf &_m,
+		int _mode = CVT_VERTEX);
+	static void saveIntermidiateFrames(const Mesh &_curr_mesh, int _frame_idx,
+		MatrixXf &_prev_shape, MatrixXf &_prev_color);
+	static void saveIntermidiateFrame(const Mesh &_mesh, int &_mesh_idx,
+		const OpenMesh::IO::Options _wopt);
 
 public:
 	static void initialize(int *argcp, char **argv);

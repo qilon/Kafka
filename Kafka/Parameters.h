@@ -34,6 +34,12 @@
 
 #define SPECULAR_THRESHOLD	"specular_threshold"
 
+#define SAVE_MESH_PREFIX			"save_mesh_prefix"
+#define SAVE_MESH_SUFFIX			"save_mesh_suffix"
+#define SAVE_MESH_FIRST_IDX			"save_mesh_first_idx"
+#define SAVE_MESH_N_DIGITS			"save_mesh_n_digits"
+#define SAVE_N_INTERFRAMES_FILENAME	"save_n_interframes_filename"
+
 #include <cmath>
 #include <string>
 #include <vector>
@@ -95,6 +101,12 @@ namespace parameters {
 			mesh_sh_coeff_filename[1] = "C:/Users/Qi/Desktop/generated/images/x_-1_z_1_a_0.1/_sh_coeff.txt";
 
 			specular_threshold = 0.8;
+
+			save_mesh_prefix = "";
+			save_mesh_suffix = "";
+			save_mesh_first_idx = 1;
+			save_mesh_n_digits = 4;
+			save_n_interframes_filename = "";
 		}
 
 		// Window parameters
@@ -133,6 +145,11 @@ namespace parameters {
 
 		float specular_threshold;
 
+		string save_mesh_prefix;
+		string save_mesh_suffix;
+		int save_mesh_first_idx;
+		int save_mesh_n_digits;
+		string save_n_interframes_filename;
 
 		// Load parameters from an ini file
 		inline void load(const std::string &_filename)
@@ -261,6 +278,31 @@ namespace parameters {
 			if (!fs[SPECULAR_THRESHOLD].empty())
 			{
 				fs[SPECULAR_THRESHOLD] >> specular_threshold;
+			}
+
+			if (!fs[SAVE_MESH_PREFIX].empty())
+			{
+				fs[SAVE_MESH_PREFIX] >> save_mesh_prefix;
+			}
+
+			if (!fs[SAVE_MESH_SUFFIX].empty())
+			{
+				fs[SAVE_MESH_SUFFIX] >> save_mesh_suffix;
+			}
+
+			if (!fs[SAVE_MESH_FIRST_IDX].empty())
+			{
+				fs[SAVE_MESH_FIRST_IDX] >> save_mesh_first_idx;
+			}
+
+			if (!fs[SAVE_MESH_N_DIGITS].empty())
+			{
+				fs[SAVE_MESH_N_DIGITS] >> save_mesh_n_digits;
+			}
+			
+			if (!fs[SAVE_N_INTERFRAMES_FILENAME].empty())
+			{
+				fs[SAVE_N_INTERFRAMES_FILENAME] >> save_n_interframes_filename;
 			}
 		}
 
