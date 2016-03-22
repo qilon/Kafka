@@ -701,7 +701,7 @@ void Viewer::loadMeshes()
 	cvtMeshVerticesToMatrix(meshes[0][0], prev_shape, CVT_VERTEX);
 	cvtMeshVerticesToMatrix(meshes[0][0], prev_color, CVT_COLOR);
 	
-	saveIntermidiateFrame(meshes[0][0], next_mesh_idx, wopt);
+	//saveIntermidiateFrame(meshes[0][0], next_mesh_idx, wopt);
 
 	int num_vertices = meshes[0][0].n_vertices();
 
@@ -942,8 +942,8 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 	//	addToFinalColors(_frame_idx);
 	//}
 
-	saveIntermidiateFrames(meshes[_mesh_idx][_frame_idx], _frame_idx,
-		prev_shape, prev_color);
+	//saveIntermidiateFrames(meshes[_mesh_idx][_frame_idx], _frame_idx,
+	//	prev_shape, prev_color);
 
 	_mesh_idx++;
 	if (_mesh_idx == params.n_meshes)
@@ -957,15 +957,15 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 		threads[_mesh_idx][_frame_idx] =
 			new boost::thread(&readMeshNext, _mesh_idx, _frame_idx);
 	} 
-	else
-	{
-		//saveFinalMesh();
+	//else
+	//{
+	//	//saveFinalMesh();
 
-		std::ofstream ofs(params.save_n_interframes_filename);
-		std::ostream_iterator<float> output_iterator(ofs, "\n");
-		std::copy(n_inter_frames.begin(), n_inter_frames.end(), output_iterator);
-		ofs.close();
-	}
+	//	std::ofstream ofs(params.save_n_interframes_filename);
+	//	std::ostream_iterator<float> output_iterator(ofs, "\n");
+	//	std::copy(n_inter_frames.begin(), n_inter_frames.end(), output_iterator);
+	//	ofs.close();
+	//}
 }
 //=============================================================================
 void Viewer::addToFinalColors(int _frame_idx)
