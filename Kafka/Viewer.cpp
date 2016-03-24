@@ -61,6 +61,8 @@ clock_t Viewer::last_time;
 
 vector<vector<float>> Viewer::sh_coeff;
 
+vector<vector<float>> Viewer::intrinsics;
+
 //MatrixXf** Viewer::intensities = nullptr;
 //VectorXi Viewer::mode;
 
@@ -897,5 +899,18 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 		threads[_mesh_idx][_frame_idx] =
 			new boost::thread(&readMeshNext, _mesh_idx, _frame_idx);
 	} 
+}
+//=============================================================================
+void Viewer::readIntrinsics(string _filename)
+{
+	ifstream ifs(_filename);
+	intrinsics.resize(3);
+	for (int i = 0; i < intrinsics.size(); i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+
+		}
+	}
 }
 //=============================================================================

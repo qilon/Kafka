@@ -121,6 +121,8 @@ private:
 	static clock_t last_time;
 
 	static vector<vector<float>> sh_coeff;
+
+	static vector<vector<float>> intrinsics;
 	
 	//static VectorXi mode;
 
@@ -201,6 +203,9 @@ private:
 		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max);
 	static void computeNormalColor(GLfloat* _color, const Mesh::Normal &_normal);
 	static void readMeshNext(int _mesh_idx, int _frame_idx);
+
+	static void readIntrinsics(string _filename);
+
 
 public:
 	static void initialize(int *argcp, char **argv);
