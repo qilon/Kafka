@@ -24,6 +24,7 @@ const double Viewer::FRAME_FREQ = 1000.f / 30.f;
 const int Viewer::PLAY_BUTTON_WIDTH = 300;
 
 const int Viewer::N_COLOR_MODES = 8;
+const int Viewer::N_NON_COMP_COLOR_MODES = 5;
 const char* Viewer::STRING_COLOR_MODES[] = {
 	"Intensity", 
 	"Albedo", 
@@ -63,6 +64,8 @@ vector<vector<float>> Viewer::sh_coeff;
 
 vector<vector<float>> Viewer::intrinsics;
 
+vector<vector<Mesh::Point>> Viewer::mesh_centers;
+
 //MatrixXf** Viewer::intensities = nullptr;
 //VectorXi Viewer::mode;
 
@@ -74,7 +77,6 @@ GLfloat Viewer::frustum_right;
 /* ROTATION AND TRANSLATION MATRIXES*/
 GLfloat Viewer::translation[3] = { 0.f, 0.f, 0.f };
 GLfloat Viewer::rotation[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
-vector<vector<GLfloat>> Viewer::mesh_center;
 vector<vector<GLfloat>> Viewer::mesh_translation;
 vector<int> Viewer::mesh_color_mode;
 int Viewer::light_mode = MODE_NO_LIGHT;
@@ -195,7 +197,8 @@ void Viewer::initGLUIComponents(void)
 		string text = i==0 ? "Ground truth color : " : "Result " + to_string(i) + " color :       ";
 
 		glui_color_list[i] = new GLUI_Listbox(glui_panel_2, text.c_str(), &mesh_color_mode[i]);
-		for (int j = 0; j < N_COLOR_MODES; j++)
+		int n_modes = params.mesh_comparable[i] ? N_COLOR_MODES : N_NON_COMP_COLOR_MODES;
+		for (int j = 0; j < n_modes; j++)
 		{
 			glui_color_list[i]->add_item(j, STRING_COLOR_MODES[j]);
 		}
@@ -300,7 +303,7 @@ void Viewer::display(void)
 
 	glLoadIdentity();
 
-	gluLookAt(eye[0], eye[1], eye[2] + mesh_center[0][2],	/* eye */
+	gluLookAt(eye[0], eye[1], eye[2] + mesh_centers[0][0][2],	/* eye */
 		eye[0], eye[1], -1.f,	/* center */
 		0.f, 1.f, 0.f);	/* up is in positive Y direction */
 	
@@ -336,7 +339,7 @@ void Viewer::reshape(int x, int y)
 
 	frustum_right = aspectRatio * params.frustum_top;
 
-	GLfloat max_right = mesh_center[0][2] * frustum_right / params.frustum_near;
+	GLfloat max_right = mesh_centers[0][0][2] * frustum_right / params.frustum_near;
 	GLfloat offset_x = max_right / params.n_meshes;
 	for (int i = 0; i < params.n_meshes; i++)
 	{
@@ -439,8 +442,9 @@ void Viewer::idle(void)
 //=============================================================================
 void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 {
-	glRotatef(180, 0, 1, 0);
-	glRotatef(-90, 0, 0, 1);
+	glRotatef(params.mesh_rotation[0], 1, 0, 0);
+	glRotatef(params.mesh_rotation[1], 0, 1, 0);
+	glRotatef(params.mesh_rotation[2], 0, 0, 1);
 
 	Mesh* mesh2draw = &meshes[_mesh_idx][_frame_idx];
 
@@ -463,14 +467,18 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 
 			Mesh::Point p = mesh2draw->point(*fv_it);
 
-			GLfloat point[3] {p[0] - mesh_center[0][0],
-				p[1] - mesh_center[0][1],
-				p[2] - mesh_center[0][2]};
+			GLfloat point[3] {p[0] - mesh_centers[0][0][0],
+				p[1] - mesh_centers[0][0][1],
+				p[2] - mesh_centers[0][0][2]};
 
 			Mesh::Normal n = mesh2draw->normal(*fv_it);
 			GLfloat normal[3] {n[0], n[1], n[2]};
 
 			Mesh::Color c = mesh2draw->color(*fv_it);
+
+			p[0] -= mesh_centers[_mesh_idx][_frame_idx][0];
+			p[1] -= mesh_centers[_mesh_idx][_frame_idx][1];
+			p[2] -= mesh_centers[_mesh_idx][_frame_idx][2];
 
 			if (_mesh_idx == 0)
 			{
@@ -531,7 +539,7 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 				computeNormalColor(color, n);
 				break;
 			case MODE_POSITION_HEATMAP:
-				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx], 
+				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx],
 					MIN_DISTANCE, MAX_DISTANCE);
 				break;
 			case MODE_XY_HEATMAP:
@@ -561,14 +569,14 @@ void Viewer::zoom(GLfloat distance)
 	glui_trans_z->set_float_val(translation[2]);
 }
 //=============================================================================
-void Viewer::calculateCenterPoint(int _mesh_idx)
+void Viewer::calculateCenterPoint(int _mesh_idx, int _frame_idx)
 {
-	Mesh* curr_mesh = &meshes[_mesh_idx][0];
+	Mesh* curr_mesh = &meshes[_mesh_idx][_frame_idx];
 
-	GLfloat max_x = numeric_limits<float>::min(),
+	float max_x = numeric_limits<float>::min(),
 		max_y = numeric_limits<float>::min(),
 		max_z = numeric_limits<float>::min();
-	GLfloat min_x = numeric_limits<float>::max(),
+	float min_x = numeric_limits<float>::max(),
 		min_y = numeric_limits<float>::max(),
 		min_z = numeric_limits<float>::max();
 	Mesh::VertexIter v_it, v_end(curr_mesh->vertices_end());
@@ -584,10 +592,9 @@ void Viewer::calculateCenterPoint(int _mesh_idx)
 		min_z = min(min_z, p[2]);
 	}
 
-	mesh_center[_mesh_idx].resize(3);
-	mesh_center[_mesh_idx][0] = min_x + (max_x - min_x) / 2;
-	mesh_center[_mesh_idx][1] = min_y + (max_y - min_y) / 2;
-	mesh_center[_mesh_idx][2] = min_z + (max_z - min_z) / 2;
+	mesh_centers[_mesh_idx][_frame_idx][0] = min_x + (max_x - min_x) / 2;
+	mesh_centers[_mesh_idx][_frame_idx][1] = min_y + (max_y - min_y) / 2;
+	mesh_centers[_mesh_idx][_frame_idx][2] = min_z + (max_z - min_z) / 2;
 }
 //=============================================================================
 void Viewer::initialize(int *argc, char **argv)
@@ -653,12 +660,12 @@ void Viewer::loadMeshes()
 	start = clock();
 
 	meshes.resize(params.n_meshes);
-	mesh_center.resize(params.n_meshes);
 	mesh_translation.resize(params.n_meshes);
 	mesh_color_mode.resize(params.n_meshes);
 	is_loaded.resize(params.n_meshes);
 	last_loaded_frame.resize(params.n_meshes);
 	threads.resize(params.n_meshes);
+	mesh_centers.resize(params.n_meshes);
 
 	for (int i = 0; i < params.n_meshes; i++)
 	{
@@ -666,6 +673,7 @@ void Viewer::loadMeshes()
 		mesh_translation[i].resize(3);
 		is_loaded[i].resize(params.n_frames, false);
 		threads[i].resize(params.n_frames, nullptr);
+		mesh_centers[i].resize(params.n_frames);
 	}
 
 	for (int mesh_idx = 0; mesh_idx < params.n_meshes; mesh_idx++)
@@ -688,7 +696,7 @@ void Viewer::loadMeshes()
 
 		is_loaded[i][0] = true;
 
-		calculateCenterPoint(i);
+		calculateCenterPoint(i, 0);
 	}
 
 	std::cout << (clock() - start) / (double)(CLOCKS_PER_SEC / 1000)
@@ -887,6 +895,9 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 	is_loaded[_mesh_idx][_frame_idx] = true;
 	last_loaded_frame[_mesh_idx]++;
 
+	int curr_mesh_idx = _mesh_idx;
+	int curr_frame_idx = _frame_idx;
+
 	_mesh_idx++;
 	if (_mesh_idx == params.n_meshes)
 	{
@@ -899,6 +910,8 @@ void Viewer::readMeshNext(int _mesh_idx, int _frame_idx)
 		threads[_mesh_idx][_frame_idx] =
 			new boost::thread(&readMeshNext, _mesh_idx, _frame_idx);
 	} 
+
+	calculateCenterPoint(curr_mesh_idx, curr_frame_idx);
 }
 //=============================================================================
 void Viewer::readIntrinsics(string _filename)

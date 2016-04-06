@@ -21,6 +21,8 @@
 #define BACKGROUND_COLOUR	"background_colour"
 #define MESH_COLOUR			"mesh_colour"
 
+#define MESH_ROTATION		"mesh_rotation"
+
 // I/O parameters
 #define N_MESHES		"n_meshes"
 #define N_FRAMES		"n_frames"
@@ -31,6 +33,7 @@
 #define MESH_N_DIGITS			"mesh_n_digits"
 #define MESH_HAS_ALBEDO			"mesh_has_albedo"
 #define MESH_SH_COEFF_FILENAME	"mesh_sh_coeff_filename"
+#define MESH_COMPARABLE			"mesh_comparable"
 
 #define INTRINSICS_FILENAME		"intrinsics_filename"
 
@@ -69,6 +72,9 @@ namespace parameters {
 			background_colour = { 0.46f, 0.46f, 0.54f, 1.f };
 			mesh_colour = { 0.46f, 0.46f, 0.54f, 1.f };
 
+			// Mesh initial rotation
+			mesh_rotation = { 90.0f, 180.0f, 0.0f };
+
 			// I/O parameters
 			n_meshes = 2;
 			n_frames = 1;
@@ -79,6 +85,7 @@ namespace parameters {
 			mesh_n_digits.resize(n_meshes);
 			mesh_has_albedo.resize(n_meshes);
 			mesh_sh_coeff_filename.resize(n_meshes);
+			mesh_comparable.resize(n_meshes);
 
 			mesh_prefix[0] = "C:/Users/Qi/Documents/GitHub/_PangaeaResults/low_res_gray/mesh_pyramid/";
 			mesh_suffix[0] = ".ply";
@@ -86,6 +93,7 @@ namespace parameters {
 			mesh_n_digits[0] = 4;
 			mesh_has_albedo[0] = false;
 			mesh_sh_coeff_filename[0] = "";
+			mesh_comparable[0] = false;
 
 			mesh_prefix[1] = "C:/Users/Qi/Documents/GitHub/_PangaeaResults/test20_intrinsic_color/mesh_pyramid/mesh";
 			mesh_suffix[1] = "_level00.obj";
@@ -93,6 +101,7 @@ namespace parameters {
 			mesh_n_digits[1] = 4;
 			mesh_has_albedo[1] = true;
 			mesh_sh_coeff_filename[1] = "C:/Users/Qi/Desktop/generated/images/x_-1_z_1_a_0.1/_sh_coeff.txt";
+			mesh_comparable[1] = false;
 
 			intrinsics_filename = "C:/Users/Qi/Documents/GitHub/data/levi/images/sh_2_50k/intrinsics.txt";
 		}
@@ -119,6 +128,9 @@ namespace parameters {
 		// Colours
 		vector<float> background_colour;
 		vector<float> mesh_colour;
+		
+		// Mesh initial rotation
+		vector<float> mesh_rotation;
 
 		// I/O parameters
 		int n_meshes;
@@ -129,6 +141,7 @@ namespace parameters {
 		vector<int> mesh_first_idx;
 		vector<int> mesh_n_digits;
 		vector<int> mesh_has_albedo;
+		vector<int> mesh_comparable;
 		vector<string> mesh_sh_coeff_filename;
 
 		string intrinsics_filename;
@@ -204,6 +217,11 @@ namespace parameters {
 				fs[MESH_COLOUR] >> mesh_colour;
 			}
 
+			// Mesh initial rotation
+			if (!fs[MESH_ROTATION].empty())
+			{
+				fs[MESH_ROTATION] >> mesh_rotation;
+			}
 
 			// I/O parameters
 			if (!fs[N_MESHES].empty())
@@ -256,6 +274,11 @@ namespace parameters {
 			if (!fs[MESH_HAS_ALBEDO].empty())
 			{
 				fs[MESH_HAS_ALBEDO] >> mesh_has_albedo;
+			}
+
+			if (!fs[MESH_COMPARABLE].empty())
+			{
+				fs[MESH_COMPARABLE] >> mesh_comparable;
 			}
 
 			if (!fs[INTRINSICS_FILENAME].empty())

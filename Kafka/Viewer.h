@@ -60,14 +60,14 @@
 #define MODE_GL_LIGHT	1
 
 #define MIN_DISTANCE	0
-#define MAX_DISTANCE	3
+#define MAX_DISTANCE	5
 
 // #define MIN_ORIENT_DIFF	0.866025403784439	// cos(pi/6)
 // #define MAX_ORIENT_DIFF	1
 
 #define MIN_ORIENT_DIFF	0
-// #define MAX_ORIENT_DIFF	0.517638090205041	// pi/6
-#define MAX_ORIENT_DIFF	0.765366864730180	// pi/4
+ #define MAX_ORIENT_DIFF	0.517638090205041	// pi/6
+//#define MAX_ORIENT_DIFF	0.765366864730180	// pi/4
 // #define MAX_ORIENT_DIFF	1	// 2*pi/6
 
 //=============================================================================
@@ -95,6 +95,7 @@ private:
 	const static int PLAY_BUTTON_WIDTH;
 
 	const static int N_COLOR_MODES;
+	const static int N_NON_COMP_COLOR_MODES;
 	const static char* STRING_COLOR_MODES[];
 
 	const static int N_LIGHT_MODES;
@@ -123,6 +124,8 @@ private:
 	static vector<vector<float>> sh_coeff;
 
 	static vector<vector<float>> intrinsics;
+
+	static vector<vector<Mesh::Point>> mesh_centers;
 	
 	//static VectorXi mode;
 
@@ -135,7 +138,6 @@ private:
 	static GLfloat translation[];
 	static GLfloat rotation[];
 
-	static vector<vector<GLfloat>> mesh_center;
 	static vector<vector<GLfloat>> mesh_translation;
 	static vector<int> mesh_color_mode;
 	static int light_mode;
@@ -186,7 +188,7 @@ private:
 
 	/* OTHER FUNCTIONS */
 	static void zoom(GLfloat distance); /* increase or decrease eye depth */
-	static void calculateCenterPoint(int _mesh_idx); /* calculates rotation point based on mesh size */
+	static void calculateCenterPoint(int _mesh_idx, int _frame_idx); /* calculates rotation point based on mesh size */
 	static string cvtIntToString(int _n, int _no_digits);
 	static int numDigits(int _number);
 	static void nextFrame(clock_t _curr_time, bool forward = true);
