@@ -100,6 +100,8 @@ GLUI_Translation* Viewer::glui_trans_z = nullptr;
 vector<GLUI_Listbox*> Viewer::glui_color_list;
 GLUI_Listbox* Viewer::glui_light_list = nullptr;
 GLUI_StaticText* Viewer::glui_loading_text = nullptr;
+
+bool Viewer::save_last_frame = false;
 //=============================================================================
 void Viewer::initGLUT(int *argc, char **argv)
 {
@@ -271,7 +273,23 @@ void Viewer::display(void)
 		if (curr_frame == params.n_frames)
 		{
 			updatePlay(0);
+
+			if (params.save_images)
+			{
+				save_last_frame = true;
+			}
 		}
+
+		if (params.save_images)
+		{
+			saveRenderedImage(curr_frame - 1);
+		}
+	}
+
+	if (save_last_frame)
+	{
+		saveRenderedImage(params.n_frames);
+		save_last_frame = false;
 	}
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -925,5 +943,27 @@ void Viewer::readIntrinsics(string _filename)
 
 		}
 	}
+}
+//=============================================================================
+void Viewer::saveRenderedImage(int _frame_idx)
+{
+	int img_width = glutGet(GLUT_WINDOW_WIDTH);
+	int img_height = glutGet(GLUT_WINDOW_HEIGHT);
+
+	// Rendered image
+	GLubyte* pixel_data = (GLubyte*)malloc(3 * img_width * img_height);
+
+	glReadPixels(0, 0, img_width, img_height, GL_BGR, GL_UNSIGNED_BYTE,
+		pixel_data);
+
+	cv::Mat img = cv::Mat(img_height, img_width, CV_8UC3, (void*)pixel_data);
+	cv::flip(img, img, 0);
+
+	string idx = cvtIntToString(_frame_idx, 4);
+
+	string path = params.save_image_prefix + idx + params.save_image_suffix;
+	cv::imwrite(path.c_str(), img);
+
+	delete pixel_data;
 }
 //=============================================================================

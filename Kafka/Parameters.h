@@ -37,6 +37,10 @@
 
 #define INTRINSICS_FILENAME		"intrinsics_filename"
 
+#define SAVE_IMAGES "save_images"
+#define SAVE_IMAGE_PREFIX "save_image_prefix"
+#define SAVE_IMAGE_SUFFIX "save_image_suffix"
+
 #include <cmath>
 #include <string>
 #include <vector>
@@ -104,6 +108,10 @@ namespace parameters {
 			mesh_comparable[1] = false;
 
 			intrinsics_filename = "C:/Users/Qi/Documents/GitHub/data/levi/images/sh_2_50k/intrinsics.txt";
+
+			save_images = false;
+			save_image_prefix = "";
+			save_image_suffix = "";
 		}
 
 		// Window parameters
@@ -145,6 +153,10 @@ namespace parameters {
 		vector<string> mesh_sh_coeff_filename;
 
 		string intrinsics_filename;
+
+		bool save_images;
+		string save_image_prefix;
+		string save_image_suffix;
 
 
 		// Load parameters from an ini file
@@ -284,6 +296,21 @@ namespace parameters {
 			if (!fs[INTRINSICS_FILENAME].empty())
 			{
 				fs[INTRINSICS_FILENAME] >> intrinsics_filename;
+			}
+
+			if (!fs[SAVE_IMAGES].empty())
+			{
+				fs[SAVE_IMAGES] >> save_images;
+			}
+
+			if (!fs[SAVE_IMAGE_PREFIX].empty())
+			{
+				fs[SAVE_IMAGE_PREFIX] >> save_image_prefix;
+			}
+
+			if (!fs[SAVE_IMAGE_SUFFIX].empty())
+			{
+				fs[SAVE_IMAGE_SUFFIX] >> save_image_suffix;
 			}
 		}
 

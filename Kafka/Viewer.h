@@ -12,6 +12,9 @@
 
 #include <boost/thread/thread.hpp>
 
+#include <opencv2\imgproc\imgproc.hpp>
+#include <opencv2\highgui\highgui.hpp>
+
 #include "Parameters.h"
 #include "Mesh.h"
 //=============================================================================
@@ -60,7 +63,7 @@
 #define MODE_GL_LIGHT	1
 
 #define MIN_DISTANCE	0
-#define MAX_DISTANCE	5
+#define MAX_DISTANCE	15
 
 // #define MIN_ORIENT_DIFF	0.866025403784439	// cos(pi/6)
 // #define MAX_ORIENT_DIFF	1
@@ -160,6 +163,7 @@ private:
 	static GLUI_Listbox* glui_light_list;
 	static GLUI_StaticText* glui_loading_text;
 
+	static bool save_last_frame;
 
 	//=========================================================================
 
@@ -208,6 +212,7 @@ private:
 
 	static void readIntrinsics(string _filename);
 
+	static void saveRenderedImage(int _frame_idx);
 
 public:
 	static void initialize(int *argcp, char **argv);
