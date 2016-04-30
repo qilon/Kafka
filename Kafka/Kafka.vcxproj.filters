@@ -35,5 +35,8 @@
     <ClInclude Include="Parameters.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MeshData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

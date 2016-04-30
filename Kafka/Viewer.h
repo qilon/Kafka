@@ -16,7 +16,8 @@
 #include <opencv2\highgui\highgui.hpp>
 
 #include "Parameters.h"
-#include "Mesh.h"
+//#include "Mesh.h"
+#include "MeshData.h"
 //=============================================================================
 /**** KEYBOARD KEYS ****/
 #define UPPER_A 65
@@ -50,14 +51,16 @@
 #define UPPER_W 87
 #define LOWER_W 119
 
-#define MODE_INTENSITY			0
-#define MODE_ALBEDO				1
-#define MODE_SHADING			2
-#define MODE_UNICOLOR			3
-#define MODE_NORMALS			4
-#define MODE_POSITION_HEATMAP	5
-#define MODE_XY_HEATMAP			6
-#define MODE_NORMAL_HEATMAP		7
+#define MODE_INTENSITY				0
+#define MODE_UNICOLOR				1
+#define MODE_NORMALS				2
+#define MODE_POSITION_HEATMAP		3
+#define MODE_REPROJECTION_HEATMAP	4
+#define MODE_NORMAL_HEATMAP			5
+#define MODE_ALBEDO					6
+#define MODE_SHADING				7
+#define MODE_DIFFUSE				8
+#define MODE_SPECULAR				9
 
 #define MODE_NO_LIGHT	0
 #define MODE_GL_LIGHT	1
@@ -98,7 +101,8 @@ private:
 	const static int PLAY_BUTTON_WIDTH;
 
 	const static int N_COLOR_MODES;
-	const static int N_NON_COMP_COLOR_MODES;
+	const static int N_GT_COLOR_MODES;
+	const static int N_COMP_COLOR_MODES;
 	const static char* STRING_COLOR_MODES[];
 
 	const static int N_LIGHT_MODES;
@@ -110,16 +114,14 @@ private:
 
 	static parameters::Parameters params;
 
-	static OpenMesh::IO::Options ropt;
-
 	/* MAIN VARIABLES */
-	static vector<vector<Mesh>> meshes;
+	static vector<vector<MeshData>> meshes;
 	static vector<vector<bool>> is_loaded;
 	static vector<int> last_loaded_frame;
 	static vector<vector<boost::thread*>> threads;
 	static bool continue_loading;
-	static vector<Mesh::Point> curr_gt_vertices;
-	static vector<Mesh::Normal> curr_gt_normals;
+	static vector<MeshData::VertexT> curr_gt_vertices;
+	static vector<MeshData::NormalT> curr_gt_normals;
 	static int curr_frame;
 	static bool play;
 	static clock_t last_time;
@@ -128,9 +130,7 @@ private:
 
 	static vector<vector<float>> intrinsics;
 
-	static vector<vector<Mesh::Point>> mesh_centers;
-	
-	//static VectorXi mode;
+	static vector<vector<MeshData::VertexT>> mesh_centers;
 
 	/* VIEW VARIABLES */
 	static GLfloat eye[3]; /* eye position*/
@@ -162,6 +162,7 @@ private:
 	static vector<GLUI_Listbox*> glui_color_list;
 	static GLUI_Listbox* glui_light_list;
 	static GLUI_StaticText* glui_loading_text;
+	static vector<GLUI*> glui_subwindows;
 
 	static bool save_last_frame;
 
@@ -176,6 +177,9 @@ private:
 
 	/* GLUT AND GLUI FUNCTIONS */
 	static void display(void);
+	static void display_subwindow(int mesh_idx);
+	static void display0(void);
+	static void display1(void);
 	static void reshape(int x, int y);
 	static void mouse(int button, int state, int x, int y);
 	static void motion(int x, int y);
@@ -200,15 +204,19 @@ private:
 	static void loadMeshes();
 	static void loadMesh(const int _mesh_idx, const int _frame_idx);
 	static string getMeshFilename(int _mesh_idx, int _frame_idx);
-	static void readSHCoeff(vector<float> &_sh_coeff, const string _sh_coeff_filename);
-	static GLfloat getShading(float* _normal, vector<float> &_sh_coeff);
-	static void computeHeatMapDistanceColor(GLfloat* _color, const Mesh::Point &_vertex,
-		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max, 
-		const bool _xy = false);
-	static void computeHeatMapOrientationColor(GLfloat* _color, const Mesh::Point &_vertex,
-		const Mesh::Point &_gt_vertex, const GLfloat _min, const GLfloat _max);
-	static void computeNormalColor(GLfloat* _color, const Mesh::Normal &_normal);
+	static void readSHCoeff(vector<float> &_sh_coeff, 
+		const string _sh_coeff_filename);
+	static GLfloat getShading(const float* _normal, const vector<float> &_sh_coeff);
+	static void computeHeatMapDistanceColor(GLfloat* _color, 
+		const MeshData::VertexT &_vertex, const MeshData::VertexT &_gt_vertex, 
+		const GLfloat _min, const GLfloat _max, const bool _xy = false);
+	static void computeHeatMapOrientationColor(GLfloat* _color, 
+		const MeshData::VertexT &_vertex, const MeshData::VertexT &_gt_vertex, 
+		const GLfloat _min, const GLfloat _max);
+	static void computeNormalColor(GLfloat* _color, 
+		const MeshData::NormalT &_normal);
 	static void readMeshNext(int _mesh_idx, int _frame_idx);
+	static void Viewer::readMesh(MeshData &_mesh, const string &_mesh_filename);
 
 	static void readIntrinsics(string _filename);
 

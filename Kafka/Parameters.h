@@ -32,14 +32,20 @@
 #define MESH_FIRST_IDX			"mesh_first_idx"
 #define MESH_N_DIGITS			"mesh_n_digits"
 #define MESH_HAS_ALBEDO			"mesh_has_albedo"
+#define MESH_HAS_SPECULAR		"mesh_has_specular"
 #define MESH_SH_COEFF_FILENAME	"mesh_sh_coeff_filename"
-#define MESH_COMPARABLE			"mesh_comparable"
+#define MESH_TYPE				"mesh_type"
+#define MESH_PER_FRAME_VALUES	"mesh_per_frame_values"
 
 #define INTRINSICS_FILENAME		"intrinsics_filename"
 
 #define SAVE_IMAGES "save_images"
 #define SAVE_IMAGE_PREFIX "save_image_prefix"
 #define SAVE_IMAGE_SUFFIX "save_image_suffix"
+
+#define MESH_GT			0
+#define MESH_COMP		1
+#define MESH_INTRINSIC	2
 
 #include <cmath>
 #include <string>
@@ -88,24 +94,29 @@ namespace parameters {
 			mesh_first_idx.resize(n_meshes);
 			mesh_n_digits.resize(n_meshes);
 			mesh_has_albedo.resize(n_meshes);
+			mesh_has_specular.resize(n_meshes);
 			mesh_sh_coeff_filename.resize(n_meshes);
-			mesh_comparable.resize(n_meshes);
+			mesh_type.resize(n_meshes);
+			mesh_per_frame_values.resize(n_meshes);
 
 			mesh_prefix[0] = "C:/Users/Qi/Documents/GitHub/_PangaeaResults/low_res_gray/mesh_pyramid/";
 			mesh_suffix[0] = ".ply";
 			mesh_first_idx[0] = 180;
 			mesh_n_digits[0] = 4;
 			mesh_has_albedo[0] = false;
+			mesh_has_specular[0] = false;
 			mesh_sh_coeff_filename[0] = "";
-			mesh_comparable[0] = false;
+			mesh_type[0] = MESH_GT;
+			mesh_per_frame_values[0] = false;
 
 			mesh_prefix[1] = "C:/Users/Qi/Documents/GitHub/_PangaeaResults/test20_intrinsic_color/mesh_pyramid/mesh";
 			mesh_suffix[1] = "_level00.obj";
 			mesh_first_idx[1] = 1;
 			mesh_n_digits[1] = 4;
 			mesh_has_albedo[1] = true;
+			mesh_has_specular[1] = false;
 			mesh_sh_coeff_filename[1] = "C:/Users/Qi/Desktop/generated/images/x_-1_z_1_a_0.1/_sh_coeff.txt";
-			mesh_comparable[1] = false;
+			mesh_type[1] = MESH_INTRINSIC;
 
 			intrinsics_filename = "C:/Users/Qi/Documents/GitHub/data/levi/images/sh_2_50k/intrinsics.txt";
 
@@ -149,8 +160,10 @@ namespace parameters {
 		vector<int> mesh_first_idx;
 		vector<int> mesh_n_digits;
 		vector<int> mesh_has_albedo;
-		vector<int> mesh_comparable;
+		vector<int> mesh_has_specular;
+		vector<int> mesh_type;
 		vector<string> mesh_sh_coeff_filename;
+		vector<int> mesh_per_frame_values;
 
 		string intrinsics_filename;
 
@@ -288,9 +301,19 @@ namespace parameters {
 				fs[MESH_HAS_ALBEDO] >> mesh_has_albedo;
 			}
 
-			if (!fs[MESH_COMPARABLE].empty())
+			if (!fs[MESH_HAS_SPECULAR].empty())
 			{
-				fs[MESH_COMPARABLE] >> mesh_comparable;
+				fs[MESH_HAS_SPECULAR] >> mesh_has_specular;
+			}
+
+			if (!fs[MESH_TYPE].empty())
+			{
+				fs[MESH_TYPE] >> mesh_type;
+			}
+
+			if (!fs[MESH_PER_FRAME_VALUES].empty())
+			{
+				fs[MESH_PER_FRAME_VALUES] >> mesh_per_frame_values;
 			}
 
 			if (!fs[INTRINSICS_FILENAME].empty())

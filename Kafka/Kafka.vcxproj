@@ -150,6 +150,7 @@
     <ClCompile Include="Mesh.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MeshData.h" />
     <ClInclude Include="Parameters.h" />
     <ClInclude Include="Viewer.h" />
     <ClInclude Include="Mesh.h" />
