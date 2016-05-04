@@ -12,8 +12,8 @@
 
 #include <boost/thread/thread.hpp>
 
-#include <opencv2\imgproc\imgproc.hpp>
-#include <opencv2\highgui\highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 #include "Parameters.h"
 //#include "Mesh.h"
@@ -216,7 +216,7 @@ private:
 	static void computeNormalColor(GLfloat* _color, 
 		const MeshData::NormalT &_normal);
 	static void readMeshNext(int _mesh_idx, int _frame_idx);
-	static void Viewer::readMesh(MeshData &_mesh, const string &_mesh_filename);
+	static void readMesh(MeshData &_mesh, const string &_mesh_filename);
 
 	static void readIntrinsics(string _filename);
 
