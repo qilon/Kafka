@@ -648,15 +648,15 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 				break;
 			case MODE_POSITION_HEATMAP:
 				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx],
-					MIN_DISTANCE, MAX_DISTANCE);
+					params.heat_dist_range[0], params.heat_dist_range[1]);
 				break;
 			case MODE_REPROJECTION_HEATMAP:
 				computeHeatMapDistanceColor(color, p, curr_gt_vertices[v_idx],
-					MIN_DISTANCE, MAX_DISTANCE, true);
+					params.heat_proj_range[0], params.heat_proj_range[1], true);
 				break;
 			case MODE_NORMAL_HEATMAP:
 				computeHeatMapOrientationColor(color, n, curr_gt_normals[v_idx],
-					MIN_ORIENT_DIFF, MAX_ORIENT_DIFF);
+					params.heat_orient_range[0], params.heat_orient_range[1]);
 				break;
 			case MODE_ALBEDO:
 				color[0] = c[0];

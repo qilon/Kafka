@@ -21,6 +21,10 @@
 #define BACKGROUND_COLOUR	"background_colour"
 #define MESH_COLOUR			"mesh_colour"
 
+#define HEAT_DIST_RANGE		"heat_dist_range"
+#define HEAT_ORIENT_RANGE	"heat_orient_range"
+#define HEAT_PROJ_RANGE		"heat_proj_range"
+
 #define MESH_ROTATION		"mesh_rotation"
 
 // I/O parameters
@@ -81,6 +85,10 @@ namespace parameters {
 			// Colours
 			background_colour = { 0.46f, 0.46f, 0.54f, 1.f };
 			mesh_colour = { 0.46f, 0.46f, 0.54f, 1.f };
+
+			heat_dist_range = { 0, 5 };
+			heat_orient_range = { 0, 0.517638090205041f };
+			heat_proj_range = { 0, 5 };
 
 			// Mesh initial rotation
 			mesh_rotation = { 90.0f, 180.0f, 0.0f };
@@ -147,6 +155,10 @@ namespace parameters {
 		// Colours
 		vector<float> background_colour;
 		vector<float> mesh_colour;
+
+		vector<float> heat_dist_range;
+		vector<float> heat_orient_range;
+		vector<float> heat_proj_range;
 		
 		// Mesh initial rotation
 		vector<float> mesh_rotation;
@@ -240,6 +252,21 @@ namespace parameters {
 			if (!fs[MESH_COLOUR].empty())
 			{
 				fs[MESH_COLOUR] >> mesh_colour;
+			}
+
+			if (!fs[HEAT_DIST_RANGE].empty())
+			{
+				fs[HEAT_DIST_RANGE] >> heat_dist_range;
+			}
+
+			if (!fs[HEAT_ORIENT_RANGE].empty())
+			{
+				fs[HEAT_ORIENT_RANGE] >> heat_orient_range;
+			}
+
+			if (!fs[HEAT_PROJ_RANGE].empty())
+			{
+				fs[HEAT_PROJ_RANGE] >> heat_proj_range;
 			}
 
 			// Mesh initial rotation
