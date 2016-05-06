@@ -1,0 +1,53 @@
+%YAML:1.0
+# Window parameters
+window_title: 'Original'
+window_width: 1600
+window_height: 900
+
+# View parameters
+frustum_left: -80
+frustum_right: 80
+frustum_bottom: -45
+frustum_top: 45
+frustum_near: 1000
+frustum_far: 10000
+eye: [ 0, 0, 0 ]
+
+# Light parameters
+light_ambient: [ 0.1, 0.1, 0.1, 1 ]
+light_position: [ 0, 0, 1, 0 ]
+light_intensity: [ 1, 1, 1, 1 ]
+
+# Colours
+background_colour: [ 0.21176470588, 0.23921568627, 0.23921568627, 1 ]
+mesh_colour: [ 0.7, 0.7, 0.9, 1 ]
+
+heat_dist_range: [0, 10]
+heat_orient_range: [0, 0.517638090205041]
+heat_proj_range: [0, 5]
+
+mesh_rotation: [ 0, 180, -90 ]
+
+# I/O parameters
+n_meshes: 2
+n_frames: 2
+
+mesh_prefix_0: 'C:/Users/Qi/Documents/GitHub/data/levi/meshes/original/no_holes/mesh_'
+mesh_suffix_0: '.ply'
+mesh_sh_coeff_filename_0: ''
+
+mesh_prefix_1: 'C:/Users/Qi/Documents/GitHub/results/PangaeaTracking/levi/test_memory/mesh_pyramid/mesh'
+mesh_suffix_1: '_level00.ply'
+mesh_sh_coeff_filename_1: 'C:/Users/Qi/Documents/GitHub/data/levi/templates/no_holes/albedo/smooth_cvpr15_2/sh_coeff.txt'
+
+mesh_first_idx: [180, 1]
+mesh_n_digits: [4, 4]
+
+mesh_has_albedo: [0, 1]
+mesh_has_specular: [0, 1]
+mesh_type: [0, 2]
+mesh_per_frame_values: [0, 1]
+
+save_images: 0
+save_image_prefix: 'C:/Users/Qi/Documents/GitHub/results/Kafka/rgb'
+save_image_suffix: '.png'
