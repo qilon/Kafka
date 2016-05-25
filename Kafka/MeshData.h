@@ -105,6 +105,11 @@ struct MeshData
 		return face_normals.size() == n_faces();
 	}
 
+	bool has_sh_coefficients() const
+	{
+		return !sh_coefficients.empty();
+	}
+
 	size_t n_sh_coefficients() const
 	{
 		return sh_coefficients.size();

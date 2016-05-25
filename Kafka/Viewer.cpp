@@ -623,7 +623,7 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 				color[0] = c[0];
 				color[1] = c[1];
 				color[2] = c[2];
-				if (params.mesh_has_albedo[_mesh_idx])
+				if (params.mesh_has_albedo[_mesh_idx] || mesh2draw->has_sh_coefficients())
 				{
 					shading = getShading(normal, sh_coefficients);
 					color[0] *= shading;

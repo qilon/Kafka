@@ -36,7 +36,6 @@
 #define MESH_FIRST_IDX			"mesh_first_idx"
 #define MESH_N_DIGITS			"mesh_n_digits"
 #define MESH_HAS_ALBEDO			"mesh_has_albedo"
-#define MESH_HAS_SPECULAR		"mesh_has_specular"
 #define MESH_SH_COEFF_FILENAME	"mesh_sh_coeff_filename"
 #define MESH_TYPE				"mesh_type"
 #define MESH_PER_FRAME_VALUES	"mesh_per_frame_values"
@@ -102,7 +101,6 @@ namespace parameters {
 			mesh_first_idx.resize(n_meshes);
 			mesh_n_digits.resize(n_meshes);
 			mesh_has_albedo.resize(n_meshes);
-			mesh_has_specular.resize(n_meshes);
 			mesh_sh_coeff_filename.resize(n_meshes);
 			mesh_type.resize(n_meshes);
 			mesh_per_frame_values.resize(n_meshes);
@@ -112,7 +110,6 @@ namespace parameters {
 			mesh_first_idx[0] = 180;
 			mesh_n_digits[0] = 4;
 			mesh_has_albedo[0] = false;
-			mesh_has_specular[0] = false;
 			mesh_sh_coeff_filename[0] = "";
 			mesh_type[0] = MESH_GT;
 			mesh_per_frame_values[0] = false;
@@ -122,7 +119,6 @@ namespace parameters {
 			mesh_first_idx[1] = 1;
 			mesh_n_digits[1] = 4;
 			mesh_has_albedo[1] = true;
-			mesh_has_specular[1] = false;
 			mesh_sh_coeff_filename[1] = "C:/Users/Qi/Desktop/generated/images/x_-1_z_1_a_0.1/_sh_coeff.txt";
 			mesh_type[1] = MESH_INTRINSIC;
 
@@ -172,7 +168,6 @@ namespace parameters {
 		vector<int> mesh_first_idx;
 		vector<int> mesh_n_digits;
 		vector<int> mesh_has_albedo;
-		vector<int> mesh_has_specular;
 		vector<int> mesh_type;
 		vector<string> mesh_sh_coeff_filename;
 		vector<int> mesh_per_frame_values;
@@ -323,14 +318,10 @@ namespace parameters {
 				fs[MESH_N_DIGITS] >> mesh_n_digits;
 			}
 
+			mesh_has_albedo.resize(n_meshes, 0);
 			if (!fs[MESH_HAS_ALBEDO].empty())
 			{
 				fs[MESH_HAS_ALBEDO] >> mesh_has_albedo;
-			}
-
-			if (!fs[MESH_HAS_SPECULAR].empty())
-			{
-				fs[MESH_HAS_SPECULAR] >> mesh_has_specular;
 			}
 
 			if (!fs[MESH_TYPE].empty())
