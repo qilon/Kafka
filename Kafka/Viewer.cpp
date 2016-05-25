@@ -112,7 +112,7 @@ void Viewer::initGLUT(int *argc, char **argv)
 	glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - params.window_width) / 2,
 		10);
 
-	window_id = glutCreateWindow(params.mesh_prefix[1].c_str());
+	window_id = glutCreateWindow(params.window_title.c_str());
 
 	// Uncomment to enable transparencies
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -678,9 +678,9 @@ void Viewer::drawModel(int _mesh_idx, int _frame_idx)
 			case MODE_SPECULAR:
 				if (mesh2draw->has_vertex_specular_colors())
 				{
-					color[0] = mesh2draw->vertex_specular_colors[v_idx][0];
-					color[1] = mesh2draw->vertex_specular_colors[v_idx][1];
-					color[2] = mesh2draw->vertex_specular_colors[v_idx][2];
+					color[0] = 3 * mesh2draw->vertex_specular_colors[v_idx][0];
+					color[1] = 3 * mesh2draw->vertex_specular_colors[v_idx][1];
+					color[2] = 3 * mesh2draw->vertex_specular_colors[v_idx][2];
 				}
 				else
 				{
@@ -1036,9 +1036,18 @@ void Viewer::computeNormalColor(GLfloat* _color,
 	//_color[1] = (_normal[1] + 1) / 2;
 	//_color[2] = (_normal[2] + 1) / 2;
 
-	_color[0] = (-_normal[1] + 1) / 2;
-	_color[1] = (-_normal[0] + 1) / 2;
-	_color[2] = (-_normal[2] + 1) / 2;
+	if (params.reverse_normal)
+	{
+		_color[0] = (-_normal[1] + 1) / 2;
+		_color[1] = (-_normal[0] + 1) / 2;
+		_color[2] = (-_normal[2] + 1) / 2;
+	}
+	else 
+	{
+		_color[0] = (_normal[1] + 1) / 2;
+		_color[1] = (_normal[0] + 1) / 2;
+		_color[2] = (-_normal[2] + 1) / 2;
+	}
 }
 //=============================================================================
 void Viewer::nextFrame(clock_t _curr_time, bool forward)

@@ -27,6 +27,8 @@
 
 #define MESH_ROTATION		"mesh_rotation"
 
+#define REVERSE_NORMAL		"reverse_normal"
+
 // I/O parameters
 #define N_MESHES		"n_meshes"
 #define N_FRAMES		"n_frames"
@@ -89,6 +91,8 @@ namespace parameters {
 			heat_dist_range = { 0, 5 };
 			heat_orient_range = { 0, 0.517638090205041f };
 			heat_proj_range = { 0, 5 };
+
+			reverse_normal = false;
 
 			// Mesh initial rotation
 			mesh_rotation = { 90.0f, 180.0f, 0.0f };
@@ -159,6 +163,8 @@ namespace parameters {
 		vector<float> heat_dist_range;
 		vector<float> heat_orient_range;
 		vector<float> heat_proj_range;
+
+		bool reverse_normal;
 		
 		// Mesh initial rotation
 		vector<float> mesh_rotation;
@@ -267,6 +273,11 @@ namespace parameters {
 			if (!fs[HEAT_PROJ_RANGE].empty())
 			{
 				fs[HEAT_PROJ_RANGE] >> heat_proj_range;
+			}
+
+			if (!fs[REVERSE_NORMAL].empty())
+			{
+				fs[REVERSE_NORMAL] >> reverse_normal;
 			}
 
 			// Mesh initial rotation
