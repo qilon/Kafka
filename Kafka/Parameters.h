@@ -1,6 +1,9 @@
 #ifndef PARAMETERS_H_
 #define PARAMETERS_H_
 
+#define WINDOW_WIDTH		"window_width"
+#define WINDOW_HEIGHT		"window_height"
+
 // View parameters
 #define FRUSTUM_LEFT		"frustum_left"
 #define FRUSTUM_RIGHT		"frustum_right"
@@ -189,6 +192,16 @@ namespace parameters {
 		inline void load(const std::string &_filename)
 		{
 			cv::FileStorage fs(_filename, cv::FileStorage::READ);
+
+			if (!fs[WINDOW_WIDTH].empty())
+			{
+				fs[WINDOW_WIDTH] >> window_width;
+			}
+
+			if (!fs[WINDOW_HEIGHT].empty())
+			{
+				fs[WINDOW_HEIGHT] >> window_height;
+			}
 
 			// View parameters
 			if (!fs[FRUSTUM_LEFT].empty())

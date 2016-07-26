@@ -12,7 +12,7 @@ const GLfloat Viewer::ZOOM_INCR = 5.f;
 
 /* GLUI CONTROL PARAMETERS */
 const float Viewer::TRANSLATION_SPEED = .5f;
-const float Viewer::ZOOM_SPEED = .5f;
+const float Viewer::ZOOM_SPEED = 5.0f;
 const float Viewer::ROTATION_SPIN_FACTOR = .2f;
 
 const char* Viewer::FRAME_TEXT = "Frame: ";
@@ -227,7 +227,7 @@ void Viewer::initGLUIComponents(void)
 	glui->add_column_to_panel(glui_panel_2, 0);
 	glui_trans_z = new GLUI_Translation(glui_panel_2, "Zoom out/in", 
 		GLUI_TRANSLATION_Z, &translation[2]);
-	glui_trans_z->set_speed(5);
+	glui_trans_z->set_speed(ZOOM_SPEED);
 
 	glui->add_column_to_panel(glui_panel_2, 0);
 	glui_color_list.resize(params.n_meshes);
@@ -291,6 +291,21 @@ void Viewer::updateFrameText()
 		{
 			loading_text += "Mesh " + to_string(i) + ": " 
 				+ to_string(last_loaded_frame[i]) + "/" + to_string(params.n_frames);
+			loading_text += "\n";
+		}
+	}
+
+	if (mesh_color_mode[0] == MODE_SHADING)
+	{
+		loading_text = "";
+		vector<float> &sh_coefficients = sh_coeff[0];
+		if (params.mesh_per_frame_values[0])
+		{
+			sh_coefficients = meshes[0][curr_frame - 1].sh_coefficients;
+		}
+		for (int j = 0; j < sh_coefficients.size(); j++)
+		{
+			loading_text += to_string(sh_coefficients[j]) + " ";
 			loading_text += "\n";
 		}
 	}
@@ -742,6 +757,10 @@ void Viewer::initialize(int *argc, char **argv)
 {
 	string config_filename = argv[1];
 	params.load(config_filename);
+
+	eye[0] = params.eye[0];
+	eye[1] = params.eye[1];
+	eye[2] = params.eye[2];
 
 	sh_coeff.resize(params.n_meshes);
 	mesh_color_mode.resize(params.n_meshes);
