@@ -1,4 +1,7 @@
 #include "Viewer.h"
+
+#include "use_nvidia_gpu.h"
+
 //=============================================================================
 int main(int argc, char **argv)
 {
