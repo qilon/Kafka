@@ -258,6 +258,8 @@ void Viewer::initGLUIComponents(void)
 		{
 			glui_color_list[i]->add_item(j, STRING_COLOR_MODES[j]);
 		}
+
+		//mesh_color_mode[i] = MODE_NORMALS;
 	}
 
 	glui->add_column_to_panel(glui_panel_2, 0);
@@ -1063,8 +1065,8 @@ void Viewer::computeNormalColor(GLfloat* _color,
 	}
 	else 
 	{
-		_color[0] = (_normal[1] + 1) / 2;
-		_color[1] = (_normal[0] + 1) / 2;
+		_color[0] = (_normal[0] + 1) / 2;
+		_color[1] = (-_normal[1] + 1) / 2;
 		_color[2] = (-_normal[2] + 1) / 2;
 	}
 }

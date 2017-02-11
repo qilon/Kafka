@@ -1,6 +1,7 @@
 #ifndef PARAMETERS_H_
 #define PARAMETERS_H_
 
+#define WINDOW_TITLE		"window_title"
 #define WINDOW_WIDTH		"window_width"
 #define WINDOW_HEIGHT		"window_height"
 
@@ -192,6 +193,11 @@ namespace parameters {
 		inline void load(const std::string &_filename)
 		{
 			cv::FileStorage fs(_filename, cv::FileStorage::READ);
+
+			if (!fs[WINDOW_TITLE].empty())
+			{
+				fs[WINDOW_TITLE] >> window_title;
+			}
 
 			if (!fs[WINDOW_WIDTH].empty())
 			{
